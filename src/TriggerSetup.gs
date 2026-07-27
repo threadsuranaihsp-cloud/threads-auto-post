@@ -1,0 +1,38 @@
+/**
+ * インストール型トリガーの作成。Apps Scriptエディタから一度だけ手動実行する。
+ * 再実行すると、対象ハンドラの既存トリガーを削除してから再作成するため何度実行しても安全。
+ */
+function installTriggers() {
+  removeProjectTriggers_(['dailyGenerationBatch', 'postingCycle', 'tokenRefreshCheck']);
+
+  // 前日12:00に翌日分の生成バッチを実行
+  ScriptApp.newTrigger('dailyGenerationBatch')
+    .timeBased()
+    .atHour(12)
+    .everyDays(1)
+    .create();
+
+  // 7:00〜24:00の投稿スロットを検知するため15分おきに巡回（時間外は関数内で早期リターン）
+  ScriptApp.newTrigger('postingCycle')
+    .timeBased()
+    .everyMinutes(15)
+    .create();
+
+  // トークンの有効期限を毎日チェックし、期限が近ければ自動更新
+  ScriptApp.newTrigger('tokenRefreshCheck')
+    .timeBased()
+    .atHour(3)
+    .everyDays(1)
+    .create();
+
+  Logger.log('トリガーを設定しました');
+}
+
+function removeProjectTriggers_(handlerNames) {
+  var triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(function (trigger) {
+    if (handlerNames.indexOf(trigger.getHandlerFunction()) !== -1) {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+}

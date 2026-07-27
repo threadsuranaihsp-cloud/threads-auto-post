@@ -1,0 +1,114 @@
+/**
+ * スクリプトプロパティ・シート名・列定義など、全体で共有する設定値をまとめるモジュール。
+ * APIキーやアクセストークンはシートに書かず、必ずスクリプトプロパティに保存する。
+ */
+var Config = (function () {
+  var PROP_KEYS = {
+    CLAUDE_API_KEY: 'CLAUDE_API_KEY',
+    CLAUDE_MODEL: 'CLAUDE_MODEL',
+    THREADS_ACCESS_TOKEN: 'THREADS_ACCESS_TOKEN',
+    THREADS_USER_ID: 'THREADS_USER_ID',
+    THREADS_TOKEN_EXPIRES_AT: 'THREADS_TOKEN_EXPIRES_AT',
+    ALLOWED_DRIVE_FOLDER_ID: 'ALLOWED_DRIVE_FOLDER_ID',
+    IMAGE_PROXY_BASE_URL: 'IMAGE_PROXY_BASE_URL',
+    IMAGE_PROXY_SHARED_TOKEN: 'IMAGE_PROXY_SHARED_TOKEN'
+  };
+
+  var SHEET_NAMES = {
+    QUEUE: '投稿キュー',
+    CONFIG: '設定',
+    TOKEN_STATUS: 'トークン状態',
+    LOGS: '実行ログ'
+  };
+
+  // 投稿キューシートの列番号（1始まり）
+  var QUEUE_COL = {
+    NO: 1,
+    THEME: 2,
+    IMAGE1: 3,
+    IMAGE2: 4,
+    IMAGE3: 5,
+    SCHEDULED_AT: 6,
+    BODY: 7,
+    GEN_STATUS: 8,
+    APPROVAL_STATUS: 9,
+    POST_STATUS: 10,
+    POSTED_AT: 11,
+    THREADS_POST_ID: 12,
+    ERROR_MESSAGE: 13,
+    UPDATED_AT: 14
+  };
+
+  var GEN_STATUS = { PENDING: '未生成', DONE: '生成済み', ERROR: '生成エラー' };
+  var APPROVAL_STATUS = { PENDING: '未確認', OK: 'OK', NG: 'NG' };
+  var POST_STATUS = {
+    PENDING: '未投稿',
+    DONE: '投稿済み',
+    SKIPPED_UNAPPROVED: 'スキップ(未承認)',
+    ERROR: '投稿エラー'
+  };
+
+  // 7:00〜24:00(17時間=1020分)を9分割し、両端(7:00と24:00)を含む10スロット。
+  // 1440分は24:00=翌日0:00を意味する。
+  var SLOT_MINUTES = [420, 533, 647, 760, 873, 987, 1100, 1213, 1327, 1440];
+
+  function getProp_(key) {
+    return PropertiesService.getScriptProperties().getProperty(key);
+  }
+
+  function setProp_(key, value) {
+    PropertiesService.getScriptProperties().setProperty(key, value);
+  }
+
+  function requireProp_(key) {
+    var value = getProp_(key);
+    if (!value) {
+      throw new Error('スクリプトプロパティ「' + key + '」が設定されていません');
+    }
+    return value;
+  }
+
+  return {
+    PROP_KEYS: PROP_KEYS,
+    SHEET_NAMES: SHEET_NAMES,
+    QUEUE_COL: QUEUE_COL,
+    GEN_STATUS: GEN_STATUS,
+    APPROVAL_STATUS: APPROVAL_STATUS,
+    POST_STATUS: POST_STATUS,
+    SLOT_MINUTES: SLOT_MINUTES,
+
+    getClaudeApiKey: function () {
+      return requireProp_(PROP_KEYS.CLAUDE_API_KEY);
+    },
+    getClaudeModel: function () {
+      return getProp_(PROP_KEYS.CLAUDE_MODEL) || 'claude-sonnet-5';
+    },
+    getThreadsAccessToken: function () {
+      return requireProp_(PROP_KEYS.THREADS_ACCESS_TOKEN);
+    },
+    setThreadsAccessToken: function (value) {
+      setProp_(PROP_KEYS.THREADS_ACCESS_TOKEN, value);
+    },
+    getThreadsUserId: function () {
+      return requireProp_(PROP_KEYS.THREADS_USER_ID);
+    },
+    getThreadsTokenExpiresAt: function () {
+      var value = getProp_(PROP_KEYS.THREADS_TOKEN_EXPIRES_AT);
+      return value ? new Date(value) : null;
+    },
+    setThreadsTokenExpiresAt: function (date) {
+      setProp_(PROP_KEYS.THREADS_TOKEN_EXPIRES_AT, date.toISOString());
+    },
+    // 画像プロキシがアクセスを許可するDriveフォルダID（このフォルダ配下のファイルのみ許可）
+    getAllowedDriveFolderId: function () {
+      return requireProp_(PROP_KEYS.ALLOWED_DRIVE_FOLDER_ID);
+    },
+    getImageProxyBaseUrl: function () {
+      return requireProp_(PROP_KEYS.IMAGE_PROXY_BASE_URL);
+    },
+    // 任意の共有トークン。設定しない場合はフォルダ制限のみで運用する。
+    getImageProxySharedToken: function () {
+      return getProp_(PROP_KEYS.IMAGE_PROXY_SHARED_TOKEN) || '';
+    }
+  };
+})();

@@ -14,9 +14,13 @@ var ThreadsService = {
 
     var creationId;
     if (validImageIds.length >= 2) {
+      // 各子コンテナ(画像)がFINISHEDになるのを待ってから、カルーセルの親コンテナ作成に渡す。
+      // 待たずに渡すと「子アイテムのIDが無効/期限切れ」というエラーになることがある。
       var childrenIds = validImageIds.map(function (fileId) {
         var imageUrl = DriveService.getPublicImageUrl(fileId);
-        return createCarouselItemContainer_(userId, accessToken, imageUrl);
+        var itemId = createCarouselItemContainer_(userId, accessToken, imageUrl);
+        waitUntilFinished_(itemId, accessToken);
+        return itemId;
       });
       creationId = createCarouselContainer_(userId, accessToken, childrenIds, caption);
     } else if (validImageIds.length === 1) {

@@ -9,6 +9,9 @@ var TAROT_FIXED_MESSAGE_ =
   'コメント欄であなたに必要なメッセージをお届けしています。\n' +
   '見逃さないためにフォロー＆「💧」を置いて受け取り完了してね。';
 
+// リプライ①②③の本文先頭に機械的に付与する固定見出し。AIには生成させず、コード側で連結する。
+var TAROT_REPLY_HEADINGS_ = ['①を選んだ方\n\n', '②を選んだ方\n\n', '③を選んだ方\n\n'];
+
 var SchedulerService = {
   runDailyGenerationBatch: function () {
     var targetDate = Utils.addDays(new Date(), 1);
@@ -54,9 +57,9 @@ function generateTarotPost_(rowIndex, question) {
       card1: formatCardLabel_(cards[0]),
       card2: formatCardLabel_(cards[1]),
       card3: formatCardLabel_(cards[2]),
-      replyBody1: replyBodies[0],
-      replyBody2: replyBodies[1],
-      replyBody3: replyBodies[2],
+      replyBody1: TAROT_REPLY_HEADINGS_[0] + replyBodies[0],
+      replyBody2: TAROT_REPLY_HEADINGS_[1] + replyBodies[1],
+      replyBody3: TAROT_REPLY_HEADINGS_[2] + replyBodies[2],
       body: mainBody,
       genStatus: Config.GEN_STATUS.DONE
     });

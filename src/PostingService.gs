@@ -1,6 +1,11 @@
 /**
- * 投稿予定日時が到来し、承認ステータスがOKの行を投稿する巡回処理（要件②）。
+ * 投稿予定日時が到来した行を投稿する巡回処理（要件②）。
  * 7:00〜24:00の間、数分おきに実行されることを想定している。
+ *
+ * 対象行の判定は「投稿ステータス(postStatus)が完了(投稿済み)以外はすべて処理対象」に統一している。
+ * 画像IDやリプライIDなど個別セルの空欄・非空欄で対象から除外することはしない
+ * （エラー時に一部の値だけ書き込まれても、次回サイクルで正しく再試行できるようにするため）。
+ * 各行の中でどこから再開するかは、postRow_内でthreadsPostId(本体投稿ID)の有無によって判断する。
  *
  * 1行につき「本体投稿(画像3枚+固定文言+質問文)」→「リプライ①②③」の順で投稿する。
  * リプライ①②③(リプライ本文①〜③列)は投稿種別を問わない汎用の仕組みで、
@@ -20,18 +25,8 @@ var PostingService = {
 
     var rows = SheetService.getQueueRows();
     rows.forEach(function (row) {
-      var isPending = row.postStatus === Config.POST_STATUS.PENDING;
-      var isRepliesPending = row.postStatus === Config.POST_STATUS.REPLIES_PENDING;
-      if (!isPending && !isRepliesPending) return;
+      if (row.postStatus === Config.POST_STATUS.DONE) return; // 完全に完了した行のみ除外
       if (!row.scheduledAt || row.scheduledAt > now) return;
-
-      if (isPending && row.approvalStatus !== Config.APPROVAL_STATUS.OK) {
-        SheetService.updateQueueRow(row.rowIndex, {
-          postStatus: Config.POST_STATUS.SKIPPED_UNAPPROVED
-        });
-        Utils.logEvent('投稿', row.rowIndex, 'スキップ', '承認ステータスが' + row.approvalStatus);
-        return;
-      }
 
       postRow_(row);
     });
@@ -42,6 +37,14 @@ function postRow_(row) {
   var mainPostId = row.threadsPostId;
 
   if (!mainPostId) {
+    if (row.approvalStatus !== Config.APPROVAL_STATUS.OK) {
+      SheetService.updateQueueRow(row.rowIndex, {
+        postStatus: Config.POST_STATUS.SKIPPED_UNAPPROVED
+      });
+      Utils.logEvent('投稿', row.rowIndex, 'スキップ', '承認ステータスが' + row.approvalStatus);
+      return;
+    }
+
     try {
       if (!row.body) {
         throw new Error('投稿本文が空です');

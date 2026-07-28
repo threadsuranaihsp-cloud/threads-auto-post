@@ -1,6 +1,6 @@
 /**
  * タロットカードの抽選と、抽選結果に対応する画像ファイルの解決を行うモジュール。
- * カード意味は投稿キューとは別のスプレッドシート(Config.getTarotSheetId)で管理されている。
+ * カード意味は投稿キューと同じスプレッドシート内の「カード意味」シートで管理されている。
  */
 var TAROT_SHEET_NAME_ = 'カード意味';
 var TAROT_POSITION_LABELS_ = ['①', '②', '③'];
@@ -43,8 +43,7 @@ function buildCardImageFileName_(card, positionLabel) {
 }
 
 function getTarotSpreadsheet_() {
-  var sheetId = Config.getTarotSheetId();
-  return SpreadsheetApp.openById(sheetId);
+  return SpreadsheetApp.getActiveSpreadsheet();
 }
 
 // カード意味シートのA〜C列(カード名/向き/意味)を全行読み込む。カード名が空の行は除外する。

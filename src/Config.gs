@@ -9,15 +9,15 @@ var Config = (function () {
     THREADS_ACCESS_TOKEN: 'THREADS_ACCESS_TOKEN',
     THREADS_USER_ID: 'THREADS_USER_ID',
     THREADS_TOKEN_EXPIRES_AT: 'THREADS_TOKEN_EXPIRES_AT',
-    ALLOWED_DRIVE_FOLDER_ID: 'ALLOWED_DRIVE_FOLDER_ID',
-    TAROT_SHEET_ID: 'TAROT_SHEET_ID'
+    ALLOWED_DRIVE_FOLDER_ID: 'ALLOWED_DRIVE_FOLDER_ID'
   };
 
   var SHEET_NAMES = {
     QUEUE: '投稿キュー',
     CONFIG: '設定',
     TOKEN_STATUS: 'トークン状態',
-    LOGS: '実行ログ'
+    LOGS: '実行ログ',
+    KAIUN_CALENDAR: '開運日カレンダー'
   };
 
   // 投稿キューシートの列番号（1始まり）
@@ -111,10 +111,6 @@ var Config = (function () {
     // 投稿に使う画像として許可するDriveフォルダID（タロットカード画像フォルダを兼ねる）
     getAllowedDriveFolderId: function () {
       return requireProp_(PROP_KEYS.ALLOWED_DRIVE_FOLDER_ID);
-    },
-    // カード意味が書かれた別スプレッドシートのID
-    getTarotSheetId: function () {
-      return requireProp_(PROP_KEYS.TAROT_SHEET_ID);
     }
   };
 })();

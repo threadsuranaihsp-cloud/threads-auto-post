@@ -20,6 +20,8 @@ function initializeSpreadsheet() {
 
   createSheetIfMissing_(ss, Config.SHEET_NAMES.LOGS, ['日時', '処理種別', '対象行', '結果', '詳細']);
 
+  createSheetIfMissing_(ss, Config.SHEET_NAMES.KAIUN_CALENDAR, ['日付', '曜日', '開運日']);
+
   Logger.log('シートの初期化が完了しました');
 }
 

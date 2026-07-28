@@ -2,7 +2,11 @@
  * 投稿予定日時が到来し、承認ステータスがOKの行を投稿する巡回処理（要件②）。
  * 7:00〜24:00の間、数分おきに実行されることを想定している。
  *
- * 1行につき「本体投稿(画像3枚+固定文言+質問文)」→「リプライ①②③(生成本文)」の順で投稿する。
+ * 1行につき「本体投稿(画像3枚+固定文言+質問文)」→「リプライ①②③」の順で投稿する。
+ * リプライ①②③(リプライ本文①〜③列)は投稿種別を問わない汎用の仕組みで、
+ * タロット投稿ではSchedulerServiceが生成本文を自動で書き込み、それ以外の投稿では
+ * 運営が手動で入力する想定。①→②→③の順に中身をチェックし、空でないものだけ
+ * 順番にリプライとして投稿する（空欄はエラーにせずスキップする）。
  * 本体投稿が成功した時点でpostStatusをREPLIES_PENDINGにして即座に保存するため、
  * リプライの途中で失敗しても、本体の再投稿や投稿済みリプライの重複投稿を起こさずに
  * 次回サイクルで未完了分だけ再開できる。
@@ -82,9 +86,7 @@ function postRow_(row) {
 
 function postReplyIfNeeded_(row, mainPostId, index, replyBody, existingReplyId) {
   if (existingReplyId) return; // 既に投稿済みならスキップ(再実行時の重複投稿防止)
-  if (!replyBody) {
-    throw new Error('リプライ本文' + index + 'が空です');
-  }
+  if (!replyBody) return; // 未入力はエラーにせずスキップ(タロット以外の投稿で一部だけ使うケースに対応)
   var replyId = ThreadsService.replyToPost(mainPostId, replyBody);
   var field = {};
   field['replyId' + index] = replyId;

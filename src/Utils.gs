@@ -38,5 +38,11 @@ var Utils = {
     var dt = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), 0, 0, 0, 0);
     dt.setMinutes(dt.getMinutes() + minutes);
     return dt;
+  },
+
+  // dateを「7月6日（日）」形式の文字列にする。曜日はロケール依存を避けるため配列から算出する。
+  formatJapaneseDate: function (date) {
+    var weekdayNames = ['日', '月', '火', '水', '木', '金', '土'];
+    return (date.getMonth() + 1) + '月' + date.getDate() + '日（' + weekdayNames[date.getDay()] + '）';
   }
 };

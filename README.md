@@ -22,15 +22,14 @@ Googleスプレッドシートに書いたテーマから、Claude APIで投稿�
 
 | ファイル | 役割 |
 |---|---|
-| `appsscript.json` | マニフェスト（タイムゾーン、Webアプリ公開設定） |
+| `appsscript.json` | マニフェスト（タイムゾーン等） |
 | `Main.gs` | トリガーから呼ばれるエントリポイント |
 | `Config.gs` | シート名・列番号・スクリプトプロパティのアクセサ |
 | `SchedulerService.gs` | 生成バッチ（要件①） |
 | `ClaudeService.gs` | Claude API呼び出し |
 | `PostingService.gs` | 投稿巡回処理（要件②） |
 | `ThreadsService.gs` | Threads API呼び出し（コンテナ作成〜公開） |
-| `DriveService.gs` | Drive画像取得・許可フォルダ検証 |
-| `ImageProxyWebApp.gs` | 画像プロキシ（Webアプリ、`doGet`） |
+| `DriveService.gs` | Drive画像の公開URL組み立て・許可フォルダ検証 |
 | `TokenService.gs` | アクセストークン自動更新（要件③） |
 | `SheetService.gs` | スプレッドシート読み書き共通処理 |
 | `TriggerSetup.gs` | トリガーの作成（手動実行用） |
@@ -58,17 +57,11 @@ Googleスプレッドシートに書いたテーマから、Claude APIで投稿�
 | `THREADS_USER_ID` | Threadsのユーザー（アプリ）ID |
 | `THREADS_TOKEN_EXPIRES_AT` | トークン取得時の有効期限（ISO8601、例: `2026-09-25T00:00:00Z`） |
 | `ALLOWED_DRIVE_FOLDER_ID` | 画像を置く許可フォルダのDriveフォルダID |
-| `IMAGE_PROXY_BASE_URL` | 手順3でデプロイ後に設定（`.../exec` のURL） |
-| `IMAGE_PROXY_SHARED_TOKEN` | （任意）画像プロキシ用の追加の共有シークレット |
 
-### 3. 画像プロキシのデプロイ
+### 3. 画像フォルダの共有設定
 
-1. Apps Scriptエディタで「デプロイ」→「新しいデプロイ」→種類「ウェブアプリ」を選択。
-2. アクセスできるユーザー: 「全員」、実行するユーザー: 「自分」でデプロイ。
-3. 発行された `/exec` のURLを `IMAGE_PROXY_BASE_URL` に設定する。
-4. **重要**: このWebアプリは公開URLになるため、`ImageProxyWebApp.gs`の`doGet`内で
-   `ALLOWED_DRIVE_FOLDER_ID`配下のファイルIDのみ許可するチェックを必ず維持すること。
-   投稿に使う画像はすべてこのフォルダ（またはそのサブフォルダ）に置く。
+投稿に使う画像はすべて `ALLOWED_DRIVE_FOLDER_ID` で指定したフォルダ（またはそのサブフォルダ）に置き、
+フォルダを「リンクを知っている全員」に共有しておく。Threads側のサーバーが画像を取得できるようにするため。
 
 ### 4. 初期化
 
@@ -87,10 +80,24 @@ Apps Scriptエディタで以下を一度だけ手動実行する。
 3. 生成された本文を確認し、承認ステータスを`OK`（またはNG）に変更する。
 4. 承認済みの行は、投稿予定日時になると自動投稿される。
 
+## 画像URLについて（設計上の注意）
+
+当初は「Apps ScriptのWebアプリ(doGet)で許可フォルダのファイルIDのみ受け付ける画像プロキシ」を
+実装していましたが、**Google Apps ScriptのWebアプリはTextOutput/HtmlOutputしか返却できず、
+画像のようなバイナリを直接配信することができない**ことが実機検証で判明したため（`doGet`から
+Blobを直接returnすると「返された値はサポートされている戻り値の型ではありませんでした」という
+エラーになる）、この方式は廃止しました。
+
+代わりに、`DriveService.getPublicImageUrl`でDriveファイルIDから
+`https://lh3.googleusercontent.com/d/<ファイルID>` 形式の直リンクを組み立てて、
+Threads APIの`image_url`にそのまま渡す方式にしています。「許可フォルダ内の画像のみ使う」という
+制限は、取得時点でのゲートではなく、**投稿本文の生成時（SchedulerService）と投稿直前
+（PostingService）の2箇所で`DriveService.assertImagesAllowed`により事前検証し、
+フォルダ外のファイルIDが指定されていれば処理を止めてエラーとして記録する**ことで実現しています。
+
+対象ファイルはDrive上で「リンクを知っている人」に共有しておく必要があります。
+
 ## 注意事項
 
-- `ImageProxyWebApp.gs`の`doGet`はGoogle Apps Scriptの`ContentService`が公式にはバイナリ出力を
-  文書化していない挙動（Blobを直接return）を利用しています。デプロイ後、ブラウザで
-  `/exec?fileId=...` にアクセスし、画像として正しく表示されることを確認してください。
 - Threads APIのエンドポイント・パラメータ仕様は変更される可能性があるため、実装後に
   実際のレスポンスを確認しながら調整してください。

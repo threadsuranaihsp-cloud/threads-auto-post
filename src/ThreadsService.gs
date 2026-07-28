@@ -1,6 +1,7 @@
 /**
  * Threads Graph APIへの投稿処理（画像コンテナ作成→カルーセル作成→公開）。
- * 画像URLはDriveService.getImageProxyUrlで生成した、許可フォルダ制限付きの公開URLを利用する。
+ * 画像URLはDriveService.getPublicImageUrlで生成する。呼び出し側(PostingService)で
+ * DriveService.assertImagesAllowedによる許可フォルダ検証を済ませてから呼び出すこと。
  */
 var THREADS_API_BASE_ = 'https://graph.threads.net/v1.0';
 
@@ -14,12 +15,12 @@ var ThreadsService = {
     var creationId;
     if (validImageIds.length >= 2) {
       var childrenIds = validImageIds.map(function (fileId) {
-        var imageUrl = DriveService.getImageProxyUrl(fileId);
+        var imageUrl = DriveService.getPublicImageUrl(fileId);
         return createCarouselItemContainer_(userId, accessToken, imageUrl);
       });
       creationId = createCarouselContainer_(userId, accessToken, childrenIds, caption);
     } else if (validImageIds.length === 1) {
-      var imageUrl = DriveService.getImageProxyUrl(validImageIds[0]);
+      var imageUrl = DriveService.getPublicImageUrl(validImageIds[0]);
       creationId = createImageContainer_(userId, accessToken, imageUrl, caption);
     } else {
       creationId = createTextContainer_(userId, accessToken, caption);

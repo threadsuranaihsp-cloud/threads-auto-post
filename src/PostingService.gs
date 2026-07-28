@@ -32,6 +32,8 @@ function postRow_(row) {
     if (!row.body) {
       throw new Error('投稿本文が空です');
     }
+    // 承認後にシートが編集され画像が許可フォルダ外に差し替えられているケースに備え、投稿直前にも再検証する
+    DriveService.assertImagesAllowed([row.image1, row.image2, row.image3]);
     var postId = ThreadsService.publishPost(row.body, [row.image1, row.image2, row.image3]);
     SheetService.updateQueueRow(row.rowIndex, {
       postStatus: Config.POST_STATUS.DONE,

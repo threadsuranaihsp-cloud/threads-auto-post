@@ -9,9 +9,7 @@ var Config = (function () {
     THREADS_ACCESS_TOKEN: 'THREADS_ACCESS_TOKEN',
     THREADS_USER_ID: 'THREADS_USER_ID',
     THREADS_TOKEN_EXPIRES_AT: 'THREADS_TOKEN_EXPIRES_AT',
-    ALLOWED_DRIVE_FOLDER_ID: 'ALLOWED_DRIVE_FOLDER_ID',
-    IMAGE_PROXY_BASE_URL: 'IMAGE_PROXY_BASE_URL',
-    IMAGE_PROXY_SHARED_TOKEN: 'IMAGE_PROXY_SHARED_TOKEN'
+    ALLOWED_DRIVE_FOLDER_ID: 'ALLOWED_DRIVE_FOLDER_ID'
   };
 
   var SHEET_NAMES = {
@@ -99,16 +97,9 @@ var Config = (function () {
     setThreadsTokenExpiresAt: function (date) {
       setProp_(PROP_KEYS.THREADS_TOKEN_EXPIRES_AT, date.toISOString());
     },
-    // 画像プロキシがアクセスを許可するDriveフォルダID（このフォルダ配下のファイルのみ許可）
+    // 投稿に使う画像として許可するDriveフォルダID（このフォルダ配下のファイルのみ許可）
     getAllowedDriveFolderId: function () {
       return requireProp_(PROP_KEYS.ALLOWED_DRIVE_FOLDER_ID);
-    },
-    getImageProxyBaseUrl: function () {
-      return requireProp_(PROP_KEYS.IMAGE_PROXY_BASE_URL);
-    },
-    // 任意の共有トークン。設定しない場合はフォルダ制限のみで運用する。
-    getImageProxySharedToken: function () {
-      return getProp_(PROP_KEYS.IMAGE_PROXY_SHARED_TOKEN) || '';
     }
   };
 })();

@@ -36,7 +36,8 @@ var SchedulerService = {
 
 function generateAndFillCaption_(rowIndex, theme, image1, image2, image3) {
   try {
-    validateImages_(image1, image2, image3);
+    // 投稿時になってから画像が許可フォルダ外だと判明するのを避けるため、生成時点で先に検証する
+    DriveService.assertImagesAllowed([image1, image2, image3]);
     var caption = ClaudeService.generateCaption(theme);
     SheetService.updateQueueRow(rowIndex, {
       body: caption,
@@ -50,14 +51,4 @@ function generateAndFillCaption_(rowIndex, theme, image1, image2, image3) {
     });
     Utils.logEvent('生成', rowIndex, '失敗', String(err));
   }
-}
-
-// 投稿時になってから画像が許可フォルダ外だと判明するのを避けるため、生成時点で先に検証する
-function validateImages_(image1, image2, image3) {
-  [image1, image2, image3].forEach(function (fileId) {
-    if (!fileId) return;
-    if (!DriveService.isFileInAllowedFolder(fileId)) {
-      throw new Error('画像ファイルID「' + fileId + '」は許可されたDriveフォルダ内にありません');
-    }
-  });
 }

@@ -1,17 +1,19 @@
 /**
- * Google Drive画像の取得と、許可フォルダ配下かどうかの検証を行うモジュール。
- * ここでの検証結果を画像プロキシ(ImageProxyWebApp.gs)と生成バッチの両方で利用する。
+ * Google Drive画像のURL組み立てと、許可フォルダ配下かどうかの検証を行うモジュール。
+ *
+ * 注意: Google Apps ScriptのWebアプリ(doGet)はTextOutput/HtmlOutputしか返却できず、
+ * 画像などのバイナリを直接配信することはできない（実機検証済み）。そのため、
+ * Drive上のファイルを外部(Threads側)から取得可能にするには、Googleが画像配信用に
+ * 提供している直リンク形式(lh3.googleusercontent.com)を利用する。
+ * 「許可フォルダ内のみ」という制限は取得時点のゲートではなく、
+ * SchedulerService(生成時)とPostingService(投稿直前)の2箇所で
+ * isFileInAllowedFolderによる事前検証を行うことで実現している。
  */
 var DriveService = {
-  // 画像プロキシ経由で外部(Threads側)から取得可能なURLを組み立てる
-  getImageProxyUrl: function (fileId) {
-    var base = Config.getImageProxyBaseUrl();
-    var token = Config.getImageProxySharedToken();
-    var url = base + '?fileId=' + encodeURIComponent(fileId);
-    if (token) {
-      url += '&token=' + encodeURIComponent(token);
-    }
-    return url;
+  // Threads APIから取得可能な、実際の画像バイナリを返す公開URLを組み立てる。
+  // 対象ファイルはDrive上で「リンクを知っている人」に共有しておく必要がある。
+  getPublicImageUrl: function (fileId) {
+    return 'https://lh3.googleusercontent.com/d/' + encodeURIComponent(fileId);
   },
 
   // fileIdが許可フォルダ(ALLOWED_DRIVE_FOLDER_ID)配下にあるかどうかを判定する。
@@ -21,8 +23,14 @@ var DriveService = {
     return isFileWithinFolder_(fileId, allowedFolderId);
   },
 
-  getImageBlob: function (fileId) {
-    return DriveApp.getFileById(fileId).getBlob();
+  // imageFileIdsの中に許可フォルダ外のファイルIDがあれば例外を投げる（空要素はスキップ）
+  assertImagesAllowed: function (imageFileIds) {
+    (imageFileIds || []).forEach(function (fileId) {
+      if (!fileId) return;
+      if (!DriveService.isFileInAllowedFolder(fileId)) {
+        throw new Error('画像ファイルID「' + fileId + '」は許可されたDriveフォルダ内にありません');
+      }
+    });
   }
 };
 

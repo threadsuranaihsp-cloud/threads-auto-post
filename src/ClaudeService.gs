@@ -32,7 +32,11 @@ var ClaudeService = {
     }
 
     var json = JSON.parse(body);
-    var text = json.content && json.content[0] && json.content[0].text;
+    var content = json.content || [];
+    var textBlock = content.filter(function (block) {
+      return block && block.type === 'text';
+    })[0];
+    var text = textBlock && textBlock.text;
     if (!text) {
       throw new Error('Claude APIのレスポンスにテキストが含まれていません: ' + body);
     }

@@ -32,43 +32,50 @@ var ThreadsService = {
 };
 
 function createCarouselItemContainer_(userId, token, imageUrl) {
-  var url = THREADS_API_BASE_ + '/' + userId + '/threads' +
-    '?media_type=IMAGE' +
-    '&image_url=' + encodeURIComponent(imageUrl) +
-    '&is_carousel_item=true' +
-    '&access_token=' + encodeURIComponent(token);
-  return postAndGetId_(url);
+  return postAndGetId_('/' + userId + '/threads', token, {
+    media_type: 'IMAGE',
+    image_url: imageUrl,
+    is_carousel_item: 'true'
+  });
 }
 
 function createImageContainer_(userId, token, imageUrl, caption) {
-  var url = THREADS_API_BASE_ + '/' + userId + '/threads' +
-    '?media_type=IMAGE' +
-    '&image_url=' + encodeURIComponent(imageUrl) +
-    '&text=' + encodeURIComponent(caption) +
-    '&access_token=' + encodeURIComponent(token);
-  return postAndGetId_(url);
+  return postAndGetId_('/' + userId + '/threads', token, {
+    media_type: 'IMAGE',
+    image_url: imageUrl,
+    text: caption
+  });
 }
 
 function createCarouselContainer_(userId, token, childrenIds, caption) {
-  var url = THREADS_API_BASE_ + '/' + userId + '/threads' +
-    '?media_type=CAROUSEL' +
-    '&children=' + encodeURIComponent(childrenIds.join(',')) +
-    '&text=' + encodeURIComponent(caption) +
-    '&access_token=' + encodeURIComponent(token);
-  return postAndGetId_(url);
+  return postAndGetId_('/' + userId + '/threads', token, {
+    media_type: 'CAROUSEL',
+    children: childrenIds.join(','),
+    text: caption
+  });
 }
 
 function createTextContainer_(userId, token, caption) {
-  var url = THREADS_API_BASE_ + '/' + userId + '/threads' +
-    '?media_type=TEXT' +
-    '&text=' + encodeURIComponent(caption) +
-    '&access_token=' + encodeURIComponent(token);
-  return postAndGetId_(url);
+  return postAndGetId_('/' + userId + '/threads', token, {
+    media_type: 'TEXT',
+    text: caption
+  });
 }
 
-function postAndGetId_(url) {
+// POSTパラメータ(投稿本文やアクセストークンを含む)はURLクエリではなくリクエストボディで送る。
+// 本文は最大500文字の日本語を想定しており、URLエンコードすると大きく膨らんでURL長の上限
+// (UrlFetchApp: Limit Exceeded: URLFetch URL Length)に達するため。
+function postAndGetId_(path, token, params) {
+  var url = THREADS_API_BASE_ + path;
+  var payload = Object.assign({}, params, { access_token: token });
+  var options = {
+    method: 'post',
+    contentType: 'application/x-www-form-urlencoded',
+    payload: payload,
+    muteHttpExceptions: true
+  };
   var response = Utils.withRetry(function () {
-    return UrlFetchApp.fetch(url, { method: 'post', muteHttpExceptions: true });
+    return UrlFetchApp.fetch(url, options);
   }, 3, 1000);
   var code = response.getResponseCode();
   var body = response.getContentText();
@@ -83,6 +90,7 @@ function postAndGetId_(url) {
 }
 
 // メディアコンテナの処理完了(FINISHED)を待つ。最大 maxAttempts * waitMs 秒待機する。
+// ここで渡すパラメータは短いため、URL長の問題を起こさずクエリ文字列のままで問題ない。
 function waitUntilFinished_(creationId, token) {
   var maxAttempts = 10;
   var waitMs = 2000;
@@ -101,8 +109,7 @@ function waitUntilFinished_(creationId, token) {
 }
 
 function publishContainer_(userId, token, creationId) {
-  var url = THREADS_API_BASE_ + '/' + userId + '/threads_publish' +
-    '?creation_id=' + encodeURIComponent(creationId) +
-    '&access_token=' + encodeURIComponent(token);
-  return postAndGetId_(url);
+  return postAndGetId_('/' + userId + '/threads_publish', token, {
+    creation_id: creationId
+  });
 }

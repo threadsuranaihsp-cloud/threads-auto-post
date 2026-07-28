@@ -4,14 +4,12 @@
 function initializeSpreadsheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
+  // 投稿キューシート: スケジュール管理・投稿実行専用（生成は行わない）
   createSheetIfMissing_(ss, Config.SHEET_NAMES.QUEUE, [
-    'No', '質問', '画像1(DriveファイルID)', '画像2(DriveファイルID)', '画像3(DriveファイルID)',
-    '投稿予定日時', '投稿本文(本体)',
-    'リプライ本文①', 'リプライ本文②', 'リプライ本文③',
-    '生成ステータス', '承認ステータス', '投稿ステータス',
-    '実投稿日時', 'Threads投稿ID(本体)', 'エラーメッセージ', '最終更新日時',
-    'カード①', 'カード②', 'カード③',
-    'リプライ①投稿ID', 'リプライ②投稿ID', 'リプライ③投稿ID'
+    'No', '投稿タイプ', '投稿予定日時', '画像1(DriveファイルID)', '画像2(DriveファイルID)', '画像3(DriveファイルID)',
+    '投稿本文', 'リプライ本文①', 'リプライ本文②', 'リプライ本文③',
+    'リプライ①投稿ID', 'リプライ②投稿ID', 'リプライ③投稿ID',
+    '投稿ステータス', '実投稿日時', 'Threads投稿ID', 'エラーメッセージ', '最終更新日時'
   ]);
 
   createSheetIfMissing_(ss, Config.SHEET_NAMES.CONFIG, ['項目', '値', '備考']);
@@ -21,6 +19,34 @@ function initializeSpreadsheet() {
   createSheetIfMissing_(ss, Config.SHEET_NAMES.LOGS, ['日時', '処理種別', '対象行', '結果', '詳細']);
 
   createSheetIfMissing_(ss, Config.SHEET_NAMES.KAIUN_CALENDAR, ['日付', '曜日', '開運日']);
+
+  // 投稿タイプ別シート: 生成 → 内容確認 → 承認(OK) の運用を行うシート群
+  createSheetIfMissing_(ss, Config.SHEET_NAMES.TAROT, [
+    'No', '質問', '画像1(DriveファイルID)', '画像2(DriveファイルID)', '画像3(DriveファイルID)',
+    'カード①', 'カード②', 'カード③',
+    '投稿本文', 'リプライ本文①', 'リプライ本文②', 'リプライ本文③',
+    '承認ステータス', '転記ステータス', '生成日時'
+  ]);
+
+  createSheetIfMissing_(ss, Config.SHEET_NAMES.JOUJAKU, [
+    'No', '投稿本文', 'リプライ本文①', 'リプライ本文②', 'リプライ本文③',
+    '承認ステータス', '転記ステータス', '生成日時'
+  ]);
+
+  createSheetIfMissing_(ss, Config.SHEET_NAMES.HSP_ALARM, [
+    'No', '投稿本文', 'リプライ本文①', 'リプライ本文②', 'リプライ本文③',
+    '承認ステータス', '転記ステータス', '生成日時'
+  ]);
+
+  createSheetIfMissing_(ss, Config.SHEET_NAMES.KAIUN_POST, [
+    'No', '日付', '開運日', '投稿本文', 'リプライ本文①', 'リプライ本文②', 'リプライ本文③',
+    '承認ステータス', '転記ステータス', '生成日時'
+  ]);
+
+  createSheetIfMissing_(ss, Config.SHEET_NAMES.NUMEROLOGY, [
+    'No', 'テーマ', 'グループ', '投稿本文', 'リプライ本文①', 'リプライ本文②', 'リプライ本文③',
+    '承認ステータス', '転記ステータス', '生成日時'
+  ]);
 
   Logger.log('シートの初期化が完了しました');
 }

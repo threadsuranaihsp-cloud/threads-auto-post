@@ -5,9 +5,9 @@
  * 画像などのバイナリを直接配信することはできない（実機検証済み）。そのため、
  * Drive上のファイルを外部(Threads側)から取得可能にするには、Googleが画像配信用に
  * 提供している直リンク形式(lh3.googleusercontent.com)を利用する。
- * 「許可フォルダ内のみ」という制限は取得時点のゲートではなく、
- * SchedulerService(生成時)とPostingService(投稿直前)の2箇所で
- * isFileInAllowedFolderによる事前検証を行うことで実現している。
+ * 「許可フォルダ内のみ」という制限は取得時点のゲートではなく、TarotServiceが画像を
+ * 許可フォルダ内でしか検索しないこと、およびPostingServiceが投稿直前にisFileInAllowedFolderで
+ * 再検証すること（承認後にシートが編集された場合の保険）の組み合わせで実現している。
  */
 var DriveService = {
   // Threads APIから取得可能な、実際の画像バイナリを返す公開URLを組み立てる。

@@ -28,6 +28,15 @@ var ThreadsService = {
 
     waitUntilFinished_(creationId, accessToken);
     return publishContainer_(userId, accessToken, creationId);
+  },
+
+  // replyToId(投稿のThreads投稿ID)に対して、textのみのリプライを投稿し、そのIDを返す
+  replyToPost: function (replyToId, text) {
+    var accessToken = Config.getThreadsAccessToken();
+    var userId = Config.getThreadsUserId();
+    var creationId = createReplyContainer_(userId, accessToken, replyToId, text);
+    waitUntilFinished_(creationId, accessToken);
+    return publishContainer_(userId, accessToken, creationId);
   }
 };
 
@@ -59,6 +68,14 @@ function createTextContainer_(userId, token, caption) {
   return postAndGetId_('/' + userId + '/threads', token, {
     media_type: 'TEXT',
     text: caption
+  });
+}
+
+function createReplyContainer_(userId, token, replyToId, text) {
+  return postAndGetId_('/' + userId + '/threads', token, {
+    media_type: 'TEXT',
+    text: text,
+    reply_to_id: replyToId
   });
 }
 

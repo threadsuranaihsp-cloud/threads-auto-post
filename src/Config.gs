@@ -9,7 +9,8 @@ var Config = (function () {
     THREADS_ACCESS_TOKEN: 'THREADS_ACCESS_TOKEN',
     THREADS_USER_ID: 'THREADS_USER_ID',
     THREADS_TOKEN_EXPIRES_AT: 'THREADS_TOKEN_EXPIRES_AT',
-    ALLOWED_DRIVE_FOLDER_ID: 'ALLOWED_DRIVE_FOLDER_ID'
+    ALLOWED_DRIVE_FOLDER_ID: 'ALLOWED_DRIVE_FOLDER_ID',
+    TAROT_SHEET_ID: 'TAROT_SHEET_ID'
   };
 
   var SHEET_NAMES = {
@@ -22,7 +23,7 @@ var Config = (function () {
   // 投稿キューシートの列番号（1始まり）
   var QUEUE_COL = {
     NO: 1,
-    THEME: 2,
+    QUESTION: 2,
     IMAGE1: 3,
     IMAGE2: 4,
     IMAGE3: 5,
@@ -34,13 +35,23 @@ var Config = (function () {
     POSTED_AT: 11,
     THREADS_POST_ID: 12,
     ERROR_MESSAGE: 13,
-    UPDATED_AT: 14
+    UPDATED_AT: 14,
+    CARD1: 15,
+    CARD2: 16,
+    CARD3: 17,
+    REPLY_BODY1: 18,
+    REPLY_BODY2: 19,
+    REPLY_BODY3: 20,
+    REPLY_ID1: 21,
+    REPLY_ID2: 22,
+    REPLY_ID3: 23
   };
 
   var GEN_STATUS = { PENDING: '未生成', DONE: '生成済み', ERROR: '生成エラー' };
   var APPROVAL_STATUS = { PENDING: '未確認', OK: 'OK', NG: 'NG' };
   var POST_STATUS = {
     PENDING: '未投稿',
+    REPLIES_PENDING: '本文投稿済み(リプライ未完了)',
     DONE: '投稿済み',
     SKIPPED_UNAPPROVED: 'スキップ(未承認)',
     ERROR: '投稿エラー'
@@ -97,9 +108,13 @@ var Config = (function () {
     setThreadsTokenExpiresAt: function (date) {
       setProp_(PROP_KEYS.THREADS_TOKEN_EXPIRES_AT, date.toISOString());
     },
-    // 投稿に使う画像として許可するDriveフォルダID（このフォルダ配下のファイルのみ許可）
+    // 投稿に使う画像として許可するDriveフォルダID（タロットカード画像フォルダを兼ねる）
     getAllowedDriveFolderId: function () {
       return requireProp_(PROP_KEYS.ALLOWED_DRIVE_FOLDER_ID);
+    },
+    // カード意味が書かれた別スプレッドシートのID
+    getTarotSheetId: function () {
+      return requireProp_(PROP_KEYS.TAROT_SHEET_ID);
     }
   };
 })();

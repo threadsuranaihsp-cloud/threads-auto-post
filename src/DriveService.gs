@@ -31,6 +31,15 @@ var DriveService = {
         throw new Error('画像ファイルID「' + fileId + '」は許可されたDriveフォルダ内にありません');
       }
     });
+  },
+
+  // folderId直下からfileNameに完全一致するファイルを探し、見つかればそのファイルIDを返す。
+  // 見つからない場合はnullを返す（同名ファイルが複数あれば最初の1件を返す）。
+  findFileIdInFolder: function (folderId, fileName) {
+    var folder = DriveApp.getFolderById(folderId);
+    var files = folder.getFilesByName(fileName);
+    if (!files.hasNext()) return null;
+    return files.next().getId();
   }
 };
 

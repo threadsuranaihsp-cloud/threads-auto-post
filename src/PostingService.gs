@@ -1,6 +1,11 @@
 /**
- * 投稿予定日時が到来し、承認ステータスがOKの行をThreads APIで投稿する巡回処理（要件②）。
+ * 投稿予定日時が到来し、承認ステータスがOKの行を投稿する巡回処理（要件②）。
  * 7:00〜24:00の間、数分おきに実行されることを想定している。
+ *
+ * 1行につき「本体投稿(画像3枚+固定文言+質問文)」→「リプライ①②③(生成本文)」の順で投稿する。
+ * 本体投稿が成功した時点でpostStatusをREPLIES_PENDINGにして即座に保存するため、
+ * リプライの途中で失敗しても、本体の再投稿や投稿済みリプライの重複投稿を起こさずに
+ * 次回サイクルで未完了分だけ再開できる。
  */
 var PostingService = {
   runPostingCycle: function () {
@@ -11,10 +16,12 @@ var PostingService = {
 
     var rows = SheetService.getQueueRows();
     rows.forEach(function (row) {
-      if (row.postStatus !== Config.POST_STATUS.PENDING) return;
+      var isPending = row.postStatus === Config.POST_STATUS.PENDING;
+      var isRepliesPending = row.postStatus === Config.POST_STATUS.REPLIES_PENDING;
+      if (!isPending && !isRepliesPending) return;
       if (!row.scheduledAt || row.scheduledAt > now) return;
 
-      if (row.approvalStatus !== Config.APPROVAL_STATUS.OK) {
+      if (isPending && row.approvalStatus !== Config.APPROVAL_STATUS.OK) {
         SheetService.updateQueueRow(row.rowIndex, {
           postStatus: Config.POST_STATUS.SKIPPED_UNAPPROVED
         });
@@ -28,24 +35,59 @@ var PostingService = {
 };
 
 function postRow_(row) {
-  try {
-    if (!row.body) {
-      throw new Error('投稿本文が空です');
+  var mainPostId = row.threadsPostId;
+
+  if (!mainPostId) {
+    try {
+      if (!row.body) {
+        throw new Error('投稿本文が空です');
+      }
+      // 承認後にシートが編集され画像が許可フォルダ外に差し替えられているケースに備え、投稿直前にも再検証する
+      DriveService.assertImagesAllowed([row.image1, row.image2, row.image3]);
+      mainPostId = ThreadsService.publishPost(row.body, [row.image1, row.image2, row.image3]);
+      SheetService.updateQueueRow(row.rowIndex, {
+        postStatus: Config.POST_STATUS.REPLIES_PENDING,
+        postedAt: new Date(),
+        threadsPostId: mainPostId
+      });
+      Utils.logEvent('投稿', row.rowIndex, '本文投稿成功', 'postId=' + mainPostId);
+    } catch (err) {
+      SheetService.updateQueueRow(row.rowIndex, {
+        postStatus: Config.POST_STATUS.ERROR,
+        errorMessage: String(err)
+      });
+      Utils.logEvent('投稿', row.rowIndex, '本文投稿失敗', String(err));
+      return;
     }
-    // 承認後にシートが編集され画像が許可フォルダ外に差し替えられているケースに備え、投稿直前にも再検証する
-    DriveService.assertImagesAllowed([row.image1, row.image2, row.image3]);
-    var postId = ThreadsService.publishPost(row.body, [row.image1, row.image2, row.image3]);
+  }
+
+  try {
+    postReplyIfNeeded_(row, mainPostId, 1, row.replyBody1, row.replyId1);
+    postReplyIfNeeded_(row, mainPostId, 2, row.replyBody2, row.replyId2);
+    postReplyIfNeeded_(row, mainPostId, 3, row.replyBody3, row.replyId3);
+
     SheetService.updateQueueRow(row.rowIndex, {
-      postStatus: Config.POST_STATUS.DONE,
-      postedAt: new Date(),
-      threadsPostId: postId
+      postStatus: Config.POST_STATUS.DONE
     });
-    Utils.logEvent('投稿', row.rowIndex, '成功', 'postId=' + postId);
+    Utils.logEvent('投稿', row.rowIndex, '成功', 'postId=' + mainPostId);
   } catch (err) {
+    // 本文と、ここまでのリプライは投稿済みのためpostStatusはREPLIES_PENDINGのまま維持し、
+    // 次回サイクルで未完了のリプライだけ再試行させる
     SheetService.updateQueueRow(row.rowIndex, {
-      postStatus: Config.POST_STATUS.ERROR,
       errorMessage: String(err)
     });
-    Utils.logEvent('投稿', row.rowIndex, '失敗', String(err));
+    Utils.logEvent('投稿', row.rowIndex, 'リプライ投稿失敗', String(err));
   }
+}
+
+function postReplyIfNeeded_(row, mainPostId, index, replyBody, existingReplyId) {
+  if (existingReplyId) return; // 既に投稿済みならスキップ(再実行時の重複投稿防止)
+  if (!replyBody) {
+    throw new Error('リプライ本文' + index + 'が空です');
+  }
+  var replyId = ThreadsService.replyToPost(mainPostId, replyBody);
+  var field = {};
+  field['replyId' + index] = replyId;
+  SheetService.updateQueueRow(row.rowIndex, field);
+  Utils.logEvent('投稿', row.rowIndex, 'リプライ' + index + '成功', 'replyId=' + replyId);
 }

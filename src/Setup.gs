@@ -5,9 +5,12 @@ function initializeSpreadsheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
   createSheetIfMissing_(ss, Config.SHEET_NAMES.QUEUE, [
-    'No', 'テーマ', '画像1(DriveファイルID)', '画像2(DriveファイルID)', '画像3(DriveファイルID)',
-    '投稿予定日時', '投稿本文', '生成ステータス', '承認ステータス', '投稿ステータス',
-    '実投稿日時', 'Threads投稿ID', 'エラーメッセージ', '最終更新日時'
+    'No', '質問', '画像1(DriveファイルID)', '画像2(DriveファイルID)', '画像3(DriveファイルID)',
+    '投稿予定日時', '投稿本文(本体)', '生成ステータス', '承認ステータス', '投稿ステータス',
+    '実投稿日時', 'Threads投稿ID(本体)', 'エラーメッセージ', '最終更新日時',
+    'カード①', 'カード②', 'カード③',
+    '本文①(リプライ用)', '本文②(リプライ用)', '本文③(リプライ用)',
+    'リプライ①ID', 'リプライ②ID', 'リプライ③ID'
   ]);
 
   createSheetIfMissing_(ss, Config.SHEET_NAMES.CONFIG, ['項目', '値', '備考']);

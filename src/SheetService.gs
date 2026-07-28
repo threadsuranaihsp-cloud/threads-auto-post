@@ -27,13 +27,14 @@ var SheetService = {
 
     var col = Config.QUEUE_COL;
     var numRows = lastRow - 1;
-    var values = sheet.getRange(2, 1, numRows, col.UPDATED_AT).getValues();
+    var lastCol = sheet.getLastColumn();
+    var values = sheet.getRange(2, 1, numRows, Math.max(lastCol, col.REPLY_ID3)).getValues();
 
     return values.map(function (row, i) {
       return {
         rowIndex: i + 2,
         no: row[col.NO - 1],
-        theme: row[col.THEME - 1],
+        question: row[col.QUESTION - 1],
         image1: row[col.IMAGE1 - 1],
         image2: row[col.IMAGE2 - 1],
         image3: row[col.IMAGE3 - 1],
@@ -45,7 +46,16 @@ var SheetService = {
         postedAt: row[col.POSTED_AT - 1],
         threadsPostId: row[col.THREADS_POST_ID - 1],
         errorMessage: row[col.ERROR_MESSAGE - 1],
-        updatedAt: row[col.UPDATED_AT - 1]
+        updatedAt: row[col.UPDATED_AT - 1],
+        card1: row[col.CARD1 - 1],
+        card2: row[col.CARD2 - 1],
+        card3: row[col.CARD3 - 1],
+        replyBody1: row[col.REPLY_BODY1 - 1],
+        replyBody2: row[col.REPLY_BODY2 - 1],
+        replyBody3: row[col.REPLY_BODY3 - 1],
+        replyId1: row[col.REPLY_ID1 - 1],
+        replyId2: row[col.REPLY_ID2 - 1],
+        replyId3: row[col.REPLY_ID3 - 1]
       };
     });
   },
@@ -55,7 +65,7 @@ var SheetService = {
     var sheet = this.getQueueSheet();
     var col = Config.QUEUE_COL;
     var map = {
-      theme: col.THEME,
+      question: col.QUESTION,
       image1: col.IMAGE1,
       image2: col.IMAGE2,
       image3: col.IMAGE3,
@@ -66,7 +76,16 @@ var SheetService = {
       postStatus: col.POST_STATUS,
       postedAt: col.POSTED_AT,
       threadsPostId: col.THREADS_POST_ID,
-      errorMessage: col.ERROR_MESSAGE
+      errorMessage: col.ERROR_MESSAGE,
+      card1: col.CARD1,
+      card2: col.CARD2,
+      card3: col.CARD3,
+      replyBody1: col.REPLY_BODY1,
+      replyBody2: col.REPLY_BODY2,
+      replyBody3: col.REPLY_BODY3,
+      replyId1: col.REPLY_ID1,
+      replyId2: col.REPLY_ID2,
+      replyId3: col.REPLY_ID3
     };
     Object.keys(fields).forEach(function (key) {
       var colIndex = map[key];

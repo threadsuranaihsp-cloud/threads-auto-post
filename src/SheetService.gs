@@ -96,11 +96,19 @@ var SheetService = {
   },
 
   // sheetの最終行の次に新しい行を追加し、No列に連番を自動採番する。追加した行番号を返す。
+  //
+  // 書き込み直後にSpreadsheetApp.flush()で確定させている。スプレッドシートへの書き込みは
+  // パフォーマンスのため内部的にバッチ化されることがあり、flushしないまま連続してappendRowを
+  // 呼ぶと、直前の書き込みが反映される前に次のgetLastRow()が呼ばれてしまい、同じ行番号を
+  // 2回計算して後の書き込みが前の行を上書きしてしまうことがある（例外は発生せず、
+  // 生成件数より実際の行数が少なくなる形で症状が出る）。generateJoujakuBatch等のように
+  // ループでappendRowを繰り返すケースで実際に発生したため、この対策を入れている。
   appendRow: function (sheet, colMap, fields) {
     var newRowIndex = sheet.getLastRow() + 1;
     var no = newRowIndex - 1;
     var payload = Object.assign({ no: no }, fields);
     this.writeRow(sheet, newRowIndex, colMap, payload);
+    SpreadsheetApp.flush();
     return newRowIndex;
   },
 

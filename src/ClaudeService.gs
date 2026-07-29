@@ -402,11 +402,29 @@ var HSP_PATTERNS_ = [
 function buildHspAlarmPrompt_() {
   var theme = Utils.pickRandom(HSP_THEMES_);
   var pattern = Utils.pickRandom(HSP_PATTERNS_);
+  var isAnimalNursePattern = pattern.label === 'C';
 
   Utils.logEvent(
     '抽選', '-', 'HSPあるある',
     'テーマ=' + theme + ' / 構成パターン=パターン' + pattern.label + '(' + pattern.title + ')'
   );
+
+  // 動物看護師のエピソードはパターンC専用。他パターンでの流用を防ぐため、
+  // ①素材(プロフィール)自体を非C時は見せない、②「今回使う設定」で明示、③禁止事項でも念押し、の3段構え。
+  var animalNurseNote = isAnimalNursePattern
+    ? 'このパターンでは動物看護師時代のエピソードを活かして書くこと。'
+    : 'このパターンでは動物看護師のエピソードや「言葉を話せない子たち」のような比喩は使わないこと。';
+
+  var animalNurseBioLines = isAnimalNursePattern
+    ? [
+      '- 元・動物看護師のHSP占い師',
+      '- 言葉を話せない動物の小さなサインを読み取ってきた経験が、人の言葉にならない気持ちを聴く力につながっている'
+    ]
+    : [];
+
+  var animalNurseForbidLine = isAnimalNursePattern
+    ? []
+    : ['- 動物看護師のエピソードや「言葉を話せない子たち」のような比喩を使わないこと（このパターンでは使用禁止）'];
 
   return [
     'あなたはHSP占い師「しずく」のSNS担当です。',
@@ -421,10 +439,10 @@ function buildHspAlarmPrompt_() {
     '今回使うテーマ: ' + theme,
     '今回使う構成パターン: パターン' + pattern.label + '（' + pattern.title + '：' + pattern.description + '）',
     '1パターンのみ出力すること（5パターンまとめて出力しないこと）。',
+    animalNurseNote,
     '',
-    '## しずくさんについて',
-    '- 元・動物看護師のHSP占い師',
-    '- 言葉を話せない動物の小さなサインを読み取ってきた経験が、人の言葉にならない気持ちを聴く力につながっている',
+    '## しずくさんについて'
+  ].concat(animalNurseBioLines).concat([
     '- 繊細さを「弱さ」ではなく「専門性」として位置づける',
     '- 一人称：わたし',
     '- 口調：丁寧・静か・温かい',
@@ -458,11 +476,12 @@ function buildHspAlarmPrompt_() {
     '出力前に確認し、超えている場合は削ること。',
     '',
     '## 禁止事項',
-    '- テーマや構成パターンを示すメモ書き（例：（深読みしすぎる×パターンA））を本文の末尾に付けないこと',
+    '- テーマや構成パターンを示すメモ書き（例：（深読みしすぎる×パターンA））を本文の末尾に付けないこと'
+  ]).concat(animalNurseForbidLine).concat([
     '',
     '## 出力形式',
     '本文のみを出力し、前置き・説明・タイトル・引用符・メモ書きは付けないこと。'
-  ].join('\n');
+  ]).join('\n');
 }
 
 // Claudeが指示を無視して末尾に組み合わせのメモ書き

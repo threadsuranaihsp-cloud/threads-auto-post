@@ -44,5 +44,10 @@ var Utils = {
   formatJapaneseDate: function (date) {
     var weekdayNames = ['日', '月', '火', '水', '木', '金', '土'];
     return (date.getMonth() + 1) + '月' + date.getDate() + '日（' + weekdayNames[date.getDay()] + '）';
+  },
+
+  // 配列から要素を1つ均等ランダムに選ぶ
+  pickRandom: function (array) {
+    return array[Math.floor(Math.random() * array.length)];
   }
 };

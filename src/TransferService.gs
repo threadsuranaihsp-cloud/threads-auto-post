@@ -6,6 +6,10 @@
  * 不足分だけを転記する。既に必要件数を満たしているタイプはスキップするため、
  * 何度実行しても安全（冪等）。供給が足りないタイプは無理に埋め合わせず、その日の
  * 投稿本数がそのぶん少なくなる。
+ *
+ * 転記対象の選び方は、各シートを上から順に見て「承認ステータス=OK かつ 転記ステータス=未転記」の
+ * 行を必要数だけ選ぶ方式（5シート共通）。生成日時列は記録用として残っているが、転記順の判定には
+ * 使わない。
  */
 var TransferService = {
   runTransferCycle: function () {
@@ -55,22 +59,17 @@ function findTypeKeyByLabel_(label) {
   })[0];
 }
 
-// 承認ステータス=OK かつ 転記ステータス=未転記の行を、生成日時が古い順に返す
+// 承認ステータス=OK かつ 転記ステータス=未転記の行を、シート上での並び順（上から順）で返す。
+// 生成日時列は記録用として残すが、転記順の判定には使わない。
 function getApprovedUntransferredRows_(typeConfig) {
   var sheet = SheetService.getSheetByName(typeConfig.sheetName);
   var rows = SheetService.readRows(sheet, typeConfig.col);
 
-  return rows
-    .filter(function (row) {
-      var approvalStatus = row.approvalStatus || Config.APPROVAL_STATUS.PENDING;
-      var transferStatus = row.transferStatus || Config.TRANSFER_STATUS.PENDING;
-      return approvalStatus === Config.APPROVAL_STATUS.OK && transferStatus !== Config.TRANSFER_STATUS.DONE;
-    })
-    .sort(function (a, b) {
-      var at = a.generatedAt instanceof Date ? a.generatedAt.getTime() : 0;
-      var bt = b.generatedAt instanceof Date ? b.generatedAt.getTime() : 0;
-      return at - bt;
-    });
+  return rows.filter(function (row) {
+    var approvalStatus = row.approvalStatus || Config.APPROVAL_STATUS.PENDING;
+    var transferStatus = row.transferStatus || Config.TRANSFER_STATUS.PENDING;
+    return approvalStatus === Config.APPROVAL_STATUS.OK && transferStatus !== Config.TRANSFER_STATUS.DONE;
+  });
 }
 
 function transferRow_(typeConfig, candidateRow, scheduledAt) {

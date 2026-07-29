@@ -23,11 +23,6 @@ function generateTarotBatch() {
   GenerationService.generateTarotBatch();
 }
 
-// 数秘術ポストシートの「テーマが入っていて投稿本文が空」の行をまとめて生成する
-function generateNumerologyBatch() {
-  GenerationService.generateNumerologyBatch();
-}
-
 // 情弱ポストシートに本文を10件まとめて生成する
 function generateJoujakuBatch() {
   GenerationService.generateJoujakuBatch();

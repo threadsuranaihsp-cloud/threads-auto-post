@@ -52,32 +52,6 @@ var GenerationService = {
     Utils.logEvent('生成', '-', '完了', 'タロット生成対象' + targets.length + '件処理');
   },
 
-  // 数秘術ポストシートの「テーマが入っていて投稿本文が空」の行を対象に生成する。
-  // ClaudeService.generateNumerologyCaption(theme, group)はプロンプト未着手のため未実装。
-  // 実装され次第、このままエラーなく動作する。
-  generateNumerologyBatch: function () {
-    var typeConfig = Config.POST_TYPES.NUMEROLOGY;
-    var sheet = SheetService.getSheetByName(typeConfig.sheetName);
-    var targets = SheetService.readRows(sheet, typeConfig.col).filter(function (row) {
-      return row.theme && !row.body;
-    });
-
-    targets.forEach(function (row) {
-      try {
-        var body = ClaudeService.generateNumerologyCaption(row.theme, row.group);
-        SheetService.writeRow(sheet, row.rowIndex, typeConfig.col, {
-          body: body,
-          generatedAt: new Date()
-        });
-        Utils.logEvent('生成', row.rowIndex, '成功', '数秘術: ' + row.theme);
-      } catch (err) {
-        Utils.logEvent('生成', row.rowIndex, '失敗', '数秘術: ' + String(err));
-      }
-    });
-
-    Utils.logEvent('生成', '-', '完了', '数秘術生成対象' + targets.length + '件処理');
-  },
-
   // 情弱ポストシートに、Claude生成した本文を1回の実行で10件追加する
   generateJoujakuBatch: function () {
     generateFixedCountBatch_(Config.POST_TYPES.JOUJAKU, ClaudeService.generateJoujakuCaption);

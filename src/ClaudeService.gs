@@ -60,7 +60,7 @@ function callClaudeForText_(prompt, maxTokens) {
   var code = response.getResponseCode();
   var body = response.getContentText();
   if (code !== 200) {
-    throw new Error('Claude APIエラー(' + code + '): ' + body);
+    throw new Error('Claude APIエラー(' + code + '): ' + truncateForError_(body));
   }
 
   var json = JSON.parse(body);
@@ -81,9 +81,18 @@ function callClaudeForText_(prompt, maxTokens) {
   })[0];
   var text = textBlock && textBlock.text;
   if (!text) {
-    throw new Error('Claude APIのレスポンスにテキストが含まれていません: ' + body);
+    throw new Error('Claude APIのレスポンスにテキストが含まれていません: ' + truncateForError_(body));
   }
   return text;
+}
+
+// エラーメッセージにAPIの生レスポンスをそのまま含めると異常に長くなることがあり、
+// Utils.logEventでの実行ログシートへの書き込み（セルの文字数上限超過等）を妨げる恐れがあるため、
+// ログに乗せる分は適度な長さに切り詰める。
+function truncateForError_(str, maxLen) {
+  var s = String(str || '');
+  var limit = maxLen || 500;
+  return s.length > limit ? s.slice(0, limit) + '...(省略)' : s;
 }
 
 function buildTarotPrompt_(question, cards) {

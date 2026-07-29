@@ -2,10 +2,22 @@
  * 共通ユーティリティ（ログ出力、リトライ、日時計算）。
  */
 var Utils = {
+  // ログシートへの1件書き込み。detailにAPIの生レスポンス等が丸ごと入ることがあるため、
+  // シートの1セルあたりの文字数上限(5万文字)を大きく下回る範囲に切り詰めてから書き込む
+  // （異常に長いdetailが原因でappendRow自体が失敗し、失敗ログが記録されないことを防ぐため）。
+  // また、Spreadsheetサービス側の一時的な接続エラーなどでappendRowが失敗した場合に備え、
+  // 短い間隔で数回リトライしてから諦める。それでも失敗した場合はconsole.errorにのみ記録する
+  // （ログ書き込みの失敗で本処理自体を止めたくないため、ここでは例外を再送出しない）。
   logEvent: function (type, rowNo, result, detail) {
+    var safeDetail = String(detail || '');
+    if (safeDetail.length > 2000) {
+      safeDetail = safeDetail.slice(0, 2000) + '...(省略)';
+    }
     try {
-      var sheet = SheetService.getSheetByName(Config.SHEET_NAMES.LOGS);
-      sheet.appendRow([new Date(), type, rowNo, result, detail || '']);
+      Utils.withRetry(function () {
+        var sheet = SheetService.getSheetByName(Config.SHEET_NAMES.LOGS);
+        sheet.appendRow([new Date(), type, rowNo, result, safeDetail]);
+      }, 2, 300);
     } catch (e) {
       console.error('ログ書き込みに失敗しました: ' + e);
     }

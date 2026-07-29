@@ -36,7 +36,12 @@ var FIELD_TO_COL_KEY_ = {
   postedAt: 'POSTED_AT',
   threadsPostId: 'THREADS_POST_ID',
   errorMessage: 'ERROR_MESSAGE',
-  updatedAt: 'UPDATED_AT'
+  updatedAt: 'UPDATED_AT',
+  likes: 'LIKES',
+  replies: 'REPLIES',
+  reposts: 'REPOSTS',
+  views: 'VIEWS',
+  insightsStatus: 'INSIGHTS_STATUS'
 };
 
 var SheetService = {
@@ -104,7 +109,9 @@ var SheetService = {
     var rows = this.readRows(this.getQueueSheet(), Config.QUEUE_COL);
     rows.forEach(function (row) {
       row.scheduledAt = row.scheduledAt instanceof Date ? row.scheduledAt : null;
+      row.postedAt = row.postedAt instanceof Date ? row.postedAt : null;
       row.postStatus = row.postStatus || Config.POST_STATUS.PENDING;
+      row.insightsStatus = row.insightsStatus || Config.INSIGHTS_STATUS.PENDING;
     });
     return rows;
   },

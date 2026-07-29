@@ -41,8 +41,40 @@ var ThreadsService = {
     var creationId = createReplyContainer_(userId, accessToken, replyToId, text);
     waitUntilFinished_(creationId, accessToken);
     return publishContainer_(userId, accessToken, creationId);
+  },
+
+  // mediaId(投稿のThreads投稿ID)のインサイト(いいね/返信/リポスト/表示回数)を取得する。
+  // アクセストークンに threads_manage_insights 権限が付与されている必要がある。
+  getPostInsights: function (mediaId) {
+    var accessToken = Config.getThreadsAccessToken();
+    var url = THREADS_API_BASE_ + '/' + mediaId + '/insights' +
+      '?metric=likes,replies,reposts,views' +
+      '&access_token=' + encodeURIComponent(accessToken);
+    var response = Utils.withRetry(function () {
+      return UrlFetchApp.fetch(url, { method: 'get', muteHttpExceptions: true });
+    }, 3, 1000);
+    var code = response.getResponseCode();
+    var body = response.getContentText();
+    if (code !== 200) {
+      throw new Error('Threads APIエラー(' + code + '): ' + body);
+    }
+    return parseInsights_(JSON.parse(body));
   }
 };
+
+// /insightsエンドポイントの応答({"data":[{"name":"likes","values":[{"value":12}]},...]})から、
+// 指定した4指標を{likes, replies, reposts, views}の数値オブジェクトに整形する。
+// 該当指標がレスポンスに含まれない場合は0として扱う。
+function parseInsights_(json) {
+  var data = json.data || [];
+  var result = { likes: 0, replies: 0, reposts: 0, views: 0 };
+  data.forEach(function (metric) {
+    if (!Object.prototype.hasOwnProperty.call(result, metric.name)) return;
+    var value = metric.values && metric.values[0] && metric.values[0].value;
+    result[metric.name] = typeof value === 'number' ? value : 0;
+  });
+  return result;
+}
 
 function createCarouselItemContainer_(userId, token, imageUrl) {
   return postAndGetId_('/' + userId + '/threads', token, {

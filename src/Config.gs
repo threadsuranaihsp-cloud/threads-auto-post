@@ -44,7 +44,12 @@ var Config = (function () {
     POSTED_AT: 15,
     THREADS_POST_ID: 16,
     ERROR_MESSAGE: 17,
-    UPDATED_AT: 18
+    UPDATED_AT: 18,
+    LIKES: 19,
+    REPLIES: 20,
+    REPOSTS: 21,
+    VIEWS: 22,
+    INSIGHTS_STATUS: 23
   };
 
   // 投稿タイプ別シートの列番号（1始まり）。共通列(投稿本文/リプライ本文1〜3/承認ステータス/
@@ -123,6 +128,7 @@ var Config = (function () {
     DONE: '投稿済み',
     ERROR: '投稿エラー'
   };
+  var INSIGHTS_STATUS = { PENDING: '未集計', DONE: '集計済み' };
 
   // 投稿タイプのレジストリ。TransferService/GenerationServiceはこれを介して
   // タイプごとのシート名・列マップ・1日あたりの必要件数・画像の有無を参照する。
@@ -162,6 +168,7 @@ var Config = (function () {
     APPROVAL_STATUS: APPROVAL_STATUS,
     TRANSFER_STATUS: TRANSFER_STATUS,
     POST_STATUS: POST_STATUS,
+    INSIGHTS_STATUS: INSIGHTS_STATUS,
     POST_TYPES: POST_TYPES,
     SLOT_MINUTES: SLOT_MINUTES,
 

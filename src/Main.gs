@@ -16,6 +16,10 @@ function tokenRefreshCheck() {
   TokenService.checkAndRefreshToken();
 }
 
+function insightsCollection() {
+  InsightsService.runInsightsCollection();
+}
+
 // --- 手動実行用の関数（Apps Scriptエディタから実行する） ---
 
 // タロットポストシートの「質問が入っていて投稿本文が空」の行をまとめて生成する

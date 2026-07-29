@@ -3,7 +3,7 @@
  * 再実行すると、対象ハンドラの既存トリガーを削除してから再作成するため何度実行しても安全。
  */
 function installTriggers() {
-  removeProjectTriggers_(['transferCycle', 'postingCycle', 'tokenRefreshCheck']);
+  removeProjectTriggers_(['transferCycle', 'postingCycle', 'tokenRefreshCheck', 'insightsCollection']);
 
   // 投稿タイプ別シートで承認済み(OK)になった行を投稿キューへ転記する（1時間おき）
   ScriptApp.newTrigger('transferCycle')
@@ -21,6 +21,13 @@ function installTriggers() {
   ScriptApp.newTrigger('tokenRefreshCheck')
     .timeBased()
     .atHour(3)
+    .everyDays(1)
+    .create();
+
+  // 投稿から2日以上経った行のインサイト(いいね/返信/リポスト/表示回数)を毎朝集計
+  ScriptApp.newTrigger('insightsCollection')
+    .timeBased()
+    .atHour(8)
     .everyDays(1)
     .create();
 

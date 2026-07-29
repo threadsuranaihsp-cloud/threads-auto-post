@@ -149,6 +149,13 @@ function parseTarotCaptions_(text) {
   });
 }
 
+// 情弱ポスト・HSPあるあるポスト共通の「文字数タイプ」候補。構成パターン等とは独立に
+// Utils.pickRandomで抽選する（同じ配列から選ぶため50%ずつの確率になる）。
+var POST_LENGTH_TYPES_ = [
+  { label: '短め', range: '100〜150文字程度' },
+  { label: '長め', range: '300〜500文字程度' }
+];
+
 // 情弱ポストの「フックの種類」候補。ruleには元プロンプトにあったその項目固有の書き方ルールを
 // そのまま保持している（例: 数秘術系の具体的な数字選択ルール、星座系の月の対応表）。
 var JOUJAKU_HOOK_TYPES_ = [
@@ -229,10 +236,12 @@ function buildJoujakuPrompt_() {
   var hook = Utils.pickRandom(JOUJAKU_HOOK_TYPES_);
   var direction = Utils.pickRandom(JOUJAKU_MESSAGE_DIRECTIONS_);
   var pattern = Utils.pickRandom(JOUJAKU_REFERENCE_PATTERNS_);
+  var lengthType = Utils.pickRandom(POST_LENGTH_TYPES_);
 
   Utils.logEvent(
     '抽選', '-', '情弱',
-    'フック=' + hook.name + ' / 方向性=' + direction + ' / 参考=参考' + pattern.label + '(' + pattern.title + ')'
+    'フック=' + hook.name + ' / 方向性=' + direction + ' / 参考=参考' + pattern.label + '(' + pattern.title + ')' +
+    ' / 文字数タイプ=' + lengthType.label + '(' + lengthType.range + ')'
   );
 
   return [
@@ -253,6 +262,10 @@ function buildJoujakuPrompt_() {
     '今回使うフック: ' + hook.name + '（' + hook.rule + '）',
     '今回使うメッセージの方向性: ' + direction,
     '今回参考にする形式: 参考' + pattern.label + '（' + pattern.title + '）',
+    '今回の文字数目安: ' + lengthType.label + '（' + lengthType.range + '）',
+    '参考' + pattern.label + 'の構成の型は保ったまま、上記の文字数目安に収まるよう調整して書くこと。',
+    '型が長め寄りの参考でも短めが指定された場合はエピソード部分などを簡潔にし、',
+    '逆に短め寄りの参考で長めが指定された場合は描写やメッセージを丁寧に膨らませること。',
     '',
     '## 参考ポスト（トーン・構成の参考にすること）',
     '',
@@ -304,7 +317,7 @@ function buildJoujakuPrompt_() {
     'しずくさんのトーン（静か・丁寧・温かい）と大きくかけ離れるものは避け、世界観に馴染むものを優先して選ぶこと。',
     '',
     '## 文体・トーンのルール',
-    '- 全体的に短く、テンポよく読めること（100〜150文字程度を目安にする）',
+    '- テンポよく読めること',
     '- しずくさんの口調（丁寧・静か・温かい）を基本にしながら、ポストとして少し砕けた親しみやすいトーンにしてもよい',
     '- 予言・お告げのような神秘的なニュアンスを入れると拡散されやすい',
     '- HSPや繊細な人の心に刺さる言葉を選ぶ',
@@ -316,6 +329,7 @@ function buildJoujakuPrompt_() {
     'パターンを1つだけ出力すること。5パターン出力しないこと。',
     '',
     '## 文字数制限（絶対厳守）',
+    '「今回使う設定」の文字数目安（' + lengthType.range + '）を意識しつつ、',
     '1投稿あたり、必ず500文字以内に収めること。',
     'これはThreadsの仕様上の制限であり、いかなる場合も超えてはならない。',
     '出力前に必ず文字数を確認し、500文字を超えている場合は削って調整してから出力すること。',
@@ -324,7 +338,7 @@ function buildJoujakuPrompt_() {
     '- 根拠のない断定的な予言（例：必ず宝くじが当たる）は避ける',
     '- 不安を煽る表現は使わない',
     '- 特定の商品への誘導をポスト内に入れない',
-    '- 長文にしない（テンポが命）',
+    '- 「今回の文字数目安」で指定された範囲から大きく外れないこと（テンポが命）',
     '- 500文字を超えること（絶対禁止）',
     '- フックの種類やメッセージの方向性を示すメモ書き（例：（数秘術系×転機が来る・流れが変わる））を本文の末尾に付けないこと',
     '',
@@ -402,11 +416,13 @@ var HSP_PATTERNS_ = [
 function buildHspAlarmPrompt_() {
   var theme = Utils.pickRandom(HSP_THEMES_);
   var pattern = Utils.pickRandom(HSP_PATTERNS_);
+  var lengthType = Utils.pickRandom(POST_LENGTH_TYPES_);
   var isAnimalNursePattern = pattern.label === 'C';
 
   Utils.logEvent(
     '抽選', '-', 'HSPあるある',
-    'テーマ=' + theme + ' / 構成パターン=パターン' + pattern.label + '(' + pattern.title + ')'
+    'テーマ=' + theme + ' / 構成パターン=パターン' + pattern.label + '(' + pattern.title + ')' +
+    ' / 文字数タイプ=' + lengthType.label + '(' + lengthType.range + ')'
   );
 
   // 動物看護師のエピソードはパターンC専用。他パターンでの流用を防ぐため、
@@ -438,7 +454,11 @@ function buildHspAlarmPrompt_() {
     '## 今回使う設定（この指定に必ず従うこと。他のテーマ・構成パターンは使わないこと）',
     '今回使うテーマ: ' + theme,
     '今回使う構成パターン: パターン' + pattern.label + '（' + pattern.title + '：' + pattern.description + '）',
+    '今回の文字数目安: ' + lengthType.label + '（' + lengthType.range + '）',
     '1パターンのみ出力すること（5パターンまとめて出力しないこと）。',
+    'パターン' + pattern.label + 'の構成の型は保ったまま、上記の文字数目安に収まるよう調整して書くこと。',
+    '型が長め寄りの構成でも短めが指定された場合はエピソード部分などを簡潔にし、',
+    '逆に短め寄りの構成で長めが指定された場合は描写やメッセージを丁寧に膨らませること。',
     animalNurseNote,
     '',
     '## しずくさんについて'
@@ -472,8 +492,8 @@ function buildHspAlarmPrompt_() {
     '- 保存・シェアしたくなるような言葉の余韻を大切にすること',
     '',
     '## 文字数制限（絶対厳守）',
-    '1投稿あたり500文字以内。',
-    '出力前に確認し、超えている場合は削ること。',
+    '「今回使う設定」の文字数目安（' + lengthType.range + '）を意識しつつ、1投稿あたり500文字以内に収めること。',
+    '出力前に確認し、500文字を超えている場合は削ること。',
     '',
     '## 禁止事項',
     '- テーマや構成パターンを示すメモ書き（例：（深読みしすぎる×パターンA））を本文の末尾に付けないこと'

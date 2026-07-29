@@ -13,14 +13,14 @@ var ClaudeService = {
   // （有効期間は実データを渡さず、プロンプトの指示でプレースホルダーのまま出力させる）。
   // 戻り値: 本文1件（文字列）
   generateJoujakuCaption: function () {
-    var text = callClaudeForText_(buildJoujakuPrompt_(), 800);
+    var text = callClaudeForText_(buildJoujakuPrompt_(), 1500);
     return stripTrailingCombinationMemo_(text.trim());
   },
 
   // HSPあるあるポスト本文を1件生成する。引数なし
   // 戻り値: 本文1件（文字列）
   generateHspAlarmCaption: function () {
-    var text = callClaudeForText_(buildHspAlarmPrompt_(), 800);
+    var text = callClaudeForText_(buildHspAlarmPrompt_(), 1500);
     return stripTrailingCombinationMemo_(text.trim());
   },
 
@@ -28,7 +28,7 @@ var ClaudeService = {
   // date: 対象日(Dateオブジェクト), luckyDays: KaiunService.findLuckyDaysForDateで得た開運日名の配列
   // 戻り値: 本文1件（文字列）
   generateKaiunCaption: function (date, luckyDays) {
-    var text = callClaudeForText_(buildKaiunPrompt_(date, luckyDays), 800);
+    var text = callClaudeForText_(buildKaiunPrompt_(date, luckyDays), 1200);
     return text.trim();
   }
 };
@@ -64,6 +64,17 @@ function callClaudeForText_(prompt, maxTokens) {
   }
 
   var json = JSON.parse(body);
+
+  // stop_reasonが"max_tokens"の場合、本文が途中で打ち切られている（文の途中で終わるなど）。
+  // 中途半端な文章をそのまま採用すると投稿事故になるため、正常終了扱いにせずエラーとして
+  // 呼び出し元に伝える（呼び出し元のtry/catchで1件分の失敗として扱われ、バッチ処理全体は続行する）。
+  if (json.stop_reason === 'max_tokens') {
+    throw new Error(
+      'Claude APIの出力がmax_tokens到達で打ち切られました(max_tokens=' + maxTokens + ')。' +
+      '本文が途中で終わっている可能性があるため、この生成結果は採用しません。'
+    );
+  }
+
   var content = json.content || [];
   var textBlock = content.filter(function (block) {
     return block && block.type === 'text';

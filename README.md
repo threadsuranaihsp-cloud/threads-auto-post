@@ -307,6 +307,24 @@ Apps Scriptエディタで`initializeSpreadsheet`を一度だけ手動実行す�
   単独の投稿として完結する①②③④⑤⑧のみを使用する（この投稿タイプにはリプライを付けないため）。
 - 日付の表示形式（例：「7月6日（日）」）は`Utils.formatJapaneseDate(date)`で組み立てる。
 
+## Claude API呼び出しのmax_tokens・打ち切り検知について
+
+- `generateJoujakuCaption`/`generateHspAlarmCaption`/`generateKaiunCaption`はいずれも最大500文字の
+  投稿本文を生成する想定だが、日本語はトークン数と文字数の比率が英語より不利になりやすく、
+  以前の`max_tokens=800`では長め（300〜500文字程度）の投稿やHSPあるあるポストの末尾CTA文・
+  フォロー誘導文（本文とは別に付与される）を含めると出力が足りなくなり、文の途中で
+  打ち切られる（`stop_reason: "max_tokens"`）事象が発生していた。対策として、
+  `generateJoujakuCaption`/`generateHspAlarmCaption`は`1500`、`generateKaiunCaption`は`1200`に
+  引き上げている。
+- `callClaudeForText_`（Claude Messages APIを呼び出す共通処理）で、レスポンスの`stop_reason`が
+  `"max_tokens"`の場合はエラーを投げるようにした。打ち切られた中途半端な文章を正常な生成結果として
+  採用してしまうことを防ぐための対策で、この共通処理を経由する全ての投稿タイプ（タロット・情弱・
+  HSPあるある・開運）に等しく適用される。
+- `generateFixedCountBatch_`（情弱・HSPあるあるポストが使う、10件を1回のバッチ実行でまとめて
+  生成する処理）は元々1件ごとにtry/catchで囲んであり、1件の生成が失敗しても
+  （上記のmax_tokens打ち切りエラーを含め）ループ全体は止まらず、残りの件数の生成を継続する。
+  失敗した件は`Utils.logEvent`に個別に記録され、実行ログシートで確認できる。
+
 ## 画像URLについて（設計上の注意）
 
 当初は「Apps ScriptのWebアプリ(doGet)で許可フォルダのファイルIDのみ受け付ける画像プロキシ」を

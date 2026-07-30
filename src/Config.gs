@@ -132,19 +132,34 @@ var Config = (function () {
   var INSIGHTS_STATUS = { PENDING: '未集計', DONE: '集計済み' };
 
   // 投稿タイプのレジストリ。TransferService/GenerationServiceはこれを介して
-  // タイプごとのシート名・列マップ・1日あたりの必要件数・画像の有無を参照する。
-  // quotaの合計はSLOT_MINUTES.length(10)と一致させること。
+  // タイプごとのシート名・列マップ・画像の有無を参照する。
+  // 1日あたりの件数（quota相当）は固定値では持たず、DAILY_PATTERN_WITH_KAIUN /
+  // DAILY_PATTERN_WITHOUT_KAIUNの中に何回登場するかで決まる（下記参照）。
   var POST_TYPES = {
-    TAROT: { key: 'TAROT', label: 'タロット', sheetName: SHEET_NAMES.TAROT, col: TAROT_SHEET_COL, quota: 3, hasImages: true },
-    JOUJAKU: { key: 'JOUJAKU', label: '情弱', sheetName: SHEET_NAMES.JOUJAKU, col: JOUJAKU_SHEET_COL, quota: 4, hasImages: false },
-    KAIUN: { key: 'KAIUN', label: '開運', sheetName: SHEET_NAMES.KAIUN_POST, col: KAIUN_POST_SHEET_COL, quota: 1, hasImages: false },
-    HSP_ALARM: { key: 'HSP_ALARM', label: 'HSPあるある', sheetName: SHEET_NAMES.HSP_ALARM, col: HSP_ALARM_SHEET_COL, quota: 1, hasImages: false },
-    NUMEROLOGY: { key: 'NUMEROLOGY', label: '数秘術', sheetName: SHEET_NAMES.NUMEROLOGY, col: NUMEROLOGY_SHEET_COL, quota: 1, hasImages: false }
+    TAROT: { key: 'TAROT', label: 'タロット', sheetName: SHEET_NAMES.TAROT, col: TAROT_SHEET_COL, hasImages: true },
+    JOUJAKU: { key: 'JOUJAKU', label: '情弱', sheetName: SHEET_NAMES.JOUJAKU, col: JOUJAKU_SHEET_COL, hasImages: false },
+    KAIUN: { key: 'KAIUN', label: '開運', sheetName: SHEET_NAMES.KAIUN_POST, col: KAIUN_POST_SHEET_COL, hasImages: false },
+    HSP_ALARM: { key: 'HSP_ALARM', label: 'HSPあるある', sheetName: SHEET_NAMES.HSP_ALARM, col: HSP_ALARM_SHEET_COL, hasImages: false },
+    NUMEROLOGY: { key: 'NUMEROLOGY', label: '数秘術', sheetName: SHEET_NAMES.NUMEROLOGY, col: NUMEROLOGY_SHEET_COL, hasImages: false }
   };
 
-  // 7:00〜24:00(17時間=1020分)を9分割し、両端(7:00と24:00)を含む10スロット。
-  // 1440分は24:00=翌日0:00を意味する。
-  var SLOT_MINUTES = [420, 533, 647, 760, 873, 987, 1100, 1213, 1327, 1440];
+  // 1日10枠の固定スロット時刻。7:00〜21:24を96分間隔で10等分。
+  // DAILY_PATTERN_WITH_KAIUN / DAILY_PATTERN_WITHOUT_KAIUNと同じ添字で対応する
+  // （例：SLOT_MINUTES[0]の時刻に、パターン配列[0]のタイプが入る）。
+  var SLOT_MINUTES = [420, 516, 612, 708, 804, 900, 996, 1092, 1188, 1284];
+
+  // 翌日が「開運ポストがある日」（開運日カレンダーに翌日の日付が存在する日）の投稿タイプの並び順。
+  // 7:00 開運 / 8:36 タロット / 10:12 情弱 / 11:48 数秘術 / 13:24 タロット / 15:00 情弱 /
+  // 16:36 タロット / 18:12 情弱 / 19:48 HSPあるある / 21:24 情弱
+  var DAILY_PATTERN_WITH_KAIUN = [
+    'KAIUN', 'TAROT', 'JOUJAKU', 'NUMEROLOGY', 'TAROT', 'JOUJAKU', 'TAROT', 'JOUJAKU', 'HSP_ALARM', 'JOUJAKU'
+  ];
+
+  // 翌日が「開運ポストがない日」の投稿タイプの並び順。開運の枠がHSPあるあるに置き換わる
+  // （HSPあるあるが1枠→2枠になる）以外はDAILY_PATTERN_WITH_KAIUNと同じ。
+  var DAILY_PATTERN_WITHOUT_KAIUN = [
+    'HSP_ALARM', 'TAROT', 'JOUJAKU', 'NUMEROLOGY', 'TAROT', 'JOUJAKU', 'TAROT', 'JOUJAKU', 'HSP_ALARM', 'JOUJAKU'
+  ];
 
   function getProp_(key) {
     return PropertiesService.getScriptProperties().getProperty(key);
@@ -172,6 +187,8 @@ var Config = (function () {
     INSIGHTS_STATUS: INSIGHTS_STATUS,
     POST_TYPES: POST_TYPES,
     SLOT_MINUTES: SLOT_MINUTES,
+    DAILY_PATTERN_WITH_KAIUN: DAILY_PATTERN_WITH_KAIUN,
+    DAILY_PATTERN_WITHOUT_KAIUN: DAILY_PATTERN_WITHOUT_KAIUN,
 
     getClaudeApiKey: function () {
       return requireProp_(PROP_KEYS.CLAUDE_API_KEY);

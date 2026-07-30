@@ -2,46 +2,65 @@
  * 投稿タイプ別シートで承認済み(OK)になった行を、投稿キューシートへ転記する処理。
  * 1時間おきの巡回トリガーで実行することを想定している。
  *
- * 「翌日」ぶんについて、Config.POST_TYPESで定義した1日あたりの必要件数(quota)に対する
- * 不足分だけを転記する。既に必要件数を満たしているタイプはスキップするため、
- * 何度実行しても安全（冪等）。供給が足りないタイプは無理に埋め合わせず、その日の
- * 投稿本数がそのぶん少なくなる。
+ * 「翌日」の投稿は、Config.SLOT_MINUTESの10個の固定時刻スロットそれぞれに、
+ * どの投稿タイプを割り当てるかを固定した1日パターン(Config.DAILY_PATTERN_WITH_KAIUN /
+ * DAILY_PATTERN_WITHOUT_KAIUN)に従って埋めていく。どちらのパターンを使うかは、
+ * 開運日カレンダーシートに翌日の日付が存在するかどうかで判定する（開運ポスト自体の
+ * 承認状況は見ない。承認が間に合わなかった場合はKAIUNの枠だけが空いたままになり、
+ * 他タイプへの振替は行わない＝既存の「埋め合わせない」方針を踏襲）。
  *
- * 転記対象の選び方は、各シートを上から順に見て「承認ステータス=OK かつ 転記ステータス=未転記」の
- * 行を必要数だけ選ぶ方式（タロット・情弱・HSPあるある・数秘術の4タイプ共通）。生成日時列は
- * 記録用として残っているが、転記順の判定には使わない。
- *
- * 開運ポストのみ例外で、シート上の並び順ではなく「投稿予定日（翌日）と開運ポストシートの
- * 日付列が一致する行」を探して転記する。開運ポストは日付ごとに書かれた専用の内容のため、
- * 他タイプと同じ「上から順に必要数だけ」だと投稿予定日と噛み合わない日に転記されてしまう
- * おそれがあるため。日付が一致する行が無い、またはあっても未承認の場合はその日は
- * 開運ポストなしとする（他タイプで埋め合わせない、という既存方針を踏襲）。
+ * パターンを先頭のスロットから順に見ていき、各タイプについて「パターン内で何回目の
+ * 登場か」を数える。その回数が既に投稿キューに存在する当日のそのタイプの件数
+ * （countRowsByType_）未満であれば、前回までのサイクルで転記済みの枠とみなしてスキップする。
+ * これによりスロットごとの時刻を直接比較しなくても、複数回の巡回実行にまたがって
+ * 安全（冪等）に埋めていける。まだ埋まっていない枠に来たら、そのタイプの承認済み・
+ * 未転記の候補（タロット・情弱・HSPあるある・数秘術はシート上から順に、開運のみ
+ * 投稿予定日と日付が一致する1件）から未使用の1件を取り出し、そのスロットの固定時刻で
+ * 転記する。候補が尽きている場合はその枠を今回は埋めず、次回サイクルに持ち越す
+ * （他タイプで穴埋めしない）。
  */
 var TransferService = {
   runTransferCycle: function () {
     var targetDate = Utils.addDays(new Date(), 1);
     var existingRows = getQueueRowsForDate_(targetDate);
     var countByType = countRowsByType_(existingRows);
-    var usedSlots = existingRows.length;
 
-    Object.keys(Config.POST_TYPES).forEach(function (typeKey) {
-      var typeConfig = Config.POST_TYPES[typeKey];
-      var already = countByType[typeKey] || 0;
-      var remaining = typeConfig.quota - already;
-      if (remaining <= 0) return;
+    var hasKaiunTomorrow = KaiunService.listEntries().some(function (entry) {
+      return isSameDate_(entry.date, targetDate);
+    });
+    var pattern = hasKaiunTomorrow ? Config.DAILY_PATTERN_WITH_KAIUN : Config.DAILY_PATTERN_WITHOUT_KAIUN;
 
-      var candidates = typeKey === 'KAIUN'
-        ? getApprovedUntransferredKaiunRowForDate_(targetDate).slice(0, remaining)
-        : getApprovedUntransferredRows_(typeConfig).slice(0, remaining);
-      candidates.forEach(function (candidateRow) {
-        if (usedSlots >= Config.SLOT_MINUTES.length) return; // 念のための安全弁（通常は発生しない）
-        var scheduledAt = Utils.getSlotDateTime(targetDate, usedSlots);
-        transferRow_(typeConfig, candidateRow, scheduledAt);
-        usedSlots++;
-      });
+    var occurrenceIndexByType = {};
+    var candidatesByType = {};
+    var transferredCount = 0;
+
+    pattern.forEach(function (typeKey, slotIndex) {
+      var occIndex = occurrenceIndexByType[typeKey] || 0;
+      occurrenceIndexByType[typeKey] = occIndex + 1;
+
+      var alreadyFilled = occIndex < (countByType[typeKey] || 0);
+      if (alreadyFilled) return;
+
+      if (!candidatesByType[typeKey]) {
+        candidatesByType[typeKey] = typeKey === 'KAIUN'
+          ? getApprovedUntransferredKaiunRowForDate_(targetDate)
+          : getApprovedUntransferredRows_(Config.POST_TYPES[typeKey]);
+      }
+
+      var usedCountForType = occIndex - (countByType[typeKey] || 0);
+      var candidateRow = candidatesByType[typeKey][usedCountForType];
+      if (!candidateRow) return; // 供給不足。この枠は今回埋めず次回サイクルに持ち越す
+
+      var scheduledAt = Utils.getSlotDateTime(targetDate, slotIndex);
+      transferRow_(Config.POST_TYPES[typeKey], candidateRow, scheduledAt);
+      transferredCount++;
     });
 
-    Utils.logEvent('転記', '-', '完了', Utils.formatJapaneseDate(targetDate) + '分の転記を実行(計' + usedSlots + '件)');
+    Utils.logEvent(
+      '転記', '-', '完了',
+      Utils.formatJapaneseDate(targetDate) + '分の転記を実行(今回' + transferredCount + '件、' +
+      'パターン=' + (hasKaiunTomorrow ? '開運あり' : '開運なし') + ')'
+    );
   }
 };
 

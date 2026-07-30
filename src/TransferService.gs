@@ -8,8 +8,14 @@
  * 投稿本数がそのぶん少なくなる。
  *
  * 転記対象の選び方は、各シートを上から順に見て「承認ステータス=OK かつ 転記ステータス=未転記」の
- * 行を必要数だけ選ぶ方式（5シート共通）。生成日時列は記録用として残っているが、転記順の判定には
- * 使わない。
+ * 行を必要数だけ選ぶ方式（タロット・情弱・HSPあるある・数秘術の4タイプ共通）。生成日時列は
+ * 記録用として残っているが、転記順の判定には使わない。
+ *
+ * 開運ポストのみ例外で、シート上の並び順ではなく「投稿予定日（翌日）と開運ポストシートの
+ * 日付列が一致する行」を探して転記する。開運ポストは日付ごとに書かれた専用の内容のため、
+ * 他タイプと同じ「上から順に必要数だけ」だと投稿予定日と噛み合わない日に転記されてしまう
+ * おそれがあるため。日付が一致する行が無い、またはあっても未承認の場合はその日は
+ * 開運ポストなしとする（他タイプで埋め合わせない、という既存方針を踏襲）。
  */
 var TransferService = {
   runTransferCycle: function () {
@@ -24,7 +30,9 @@ var TransferService = {
       var remaining = typeConfig.quota - already;
       if (remaining <= 0) return;
 
-      var candidates = getApprovedUntransferredRows_(typeConfig).slice(0, remaining);
+      var candidates = typeKey === 'KAIUN'
+        ? getApprovedUntransferredKaiunRowForDate_(targetDate).slice(0, remaining)
+        : getApprovedUntransferredRows_(typeConfig).slice(0, remaining);
       candidates.forEach(function (candidateRow) {
         if (usedSlots >= Config.SLOT_MINUTES.length) return; // 念のための安全弁（通常は発生しない）
         var scheduledAt = Utils.getSlotDateTime(targetDate, usedSlots);
@@ -70,6 +78,28 @@ function getApprovedUntransferredRows_(typeConfig) {
     var transferStatus = row.transferStatus || Config.TRANSFER_STATUS.PENDING;
     return approvalStatus === Config.APPROVAL_STATUS.OK && transferStatus !== Config.TRANSFER_STATUS.DONE;
   });
+}
+
+// 開運ポストシートから、投稿予定日(targetDate)と「日付」列が一致する行を1件探し、
+// 承認ステータス=OK かつ 転記ステータス=未転記であればその1件だけを配列で返す。
+// 一致する行が無い、または一致してもOK・未転記でない場合は空配列を返す
+// （その日は開運ポストなしとする。他タイプで埋め合わせない既存方針を踏襲）。
+function getApprovedUntransferredKaiunRowForDate_(targetDate) {
+  var typeConfig = Config.POST_TYPES.KAIUN;
+  var sheet = SheetService.getSheetByName(typeConfig.sheetName);
+  var rows = SheetService.readRows(sheet, typeConfig.col);
+
+  var matched = rows.filter(function (row) {
+    return row.date && isSameDate_(row.date, targetDate);
+  })[0];
+  if (!matched) return [];
+
+  var approvalStatus = matched.approvalStatus || Config.APPROVAL_STATUS.PENDING;
+  var transferStatus = matched.transferStatus || Config.TRANSFER_STATUS.PENDING;
+  if (approvalStatus !== Config.APPROVAL_STATUS.OK || transferStatus === Config.TRANSFER_STATUS.DONE) {
+    return [];
+  }
+  return [matched];
 }
 
 function transferRow_(typeConfig, candidateRow, scheduledAt) {

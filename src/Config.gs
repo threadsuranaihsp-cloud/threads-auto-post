@@ -18,6 +18,7 @@ var Config = (function () {
     TOKEN_STATUS: 'トークン状態',
     LOGS: '実行ログ',
     KAIUN_CALENDAR: '開運日カレンダー',
+    BUZZWORDS: 'バズ構文',
     TAROT: 'タロットポスト',
     JOUJAKU: '情弱ポスト',
     KAIUN_POST: '開運ポスト',

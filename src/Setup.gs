@@ -21,6 +21,8 @@ function initializeSpreadsheet() {
 
   createSheetIfMissing_(ss, Config.SHEET_NAMES.KAIUN_CALENDAR, ['日付', '曜日', '開運日']);
 
+  createSheetIfMissing_(ss, Config.SHEET_NAMES.BUZZWORDS, ['No', 'バズ構文']);
+
   // 投稿タイプ別シート: 生成 → 内容確認 → 承認(OK) の運用を行うシート群
   createSheetIfMissing_(ss, Config.SHEET_NAMES.TAROT, [
     'No', '質問', '画像1(DriveファイルID)', '画像2(DriveファイルID)', '画像3(DriveファイルID)',

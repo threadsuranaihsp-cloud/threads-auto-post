@@ -33,6 +33,13 @@ var ClaudeService = {
   }
 };
 
+// 一時的なエラーとみなし、リトライ対象にするHTTPステータスコード。
+// 429(レート制限)・500/502/503/504(サーバー側の一時的な問題)・529(Claude APIの混雑=overloaded)。
+// 400・401のような恒久的なクライアントエラーはリトライしても直らないため対象外。
+var CLAUDE_RETRYABLE_STATUS_CODES_ = [429, 500, 502, 503, 504, 529];
+var CLAUDE_MAX_RETRIES_ = 3;
+var CLAUDE_RETRY_BASE_DELAY_MS_ = 2000;
+
 // Claude Messages APIを呼び出し、テキストブロックの内容をそのまま返す共通処理
 function callClaudeForText_(prompt, maxTokens) {
   var apiKey = Config.getClaudeApiKey();
@@ -53,9 +60,7 @@ function callClaudeForText_(prompt, maxTokens) {
     muteHttpExceptions: true
   };
 
-  var response = Utils.withRetry(function () {
-    return UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', options);
-  }, 3, 1000);
+  var response = fetchClaudeWithRetry_(options);
 
   var code = response.getResponseCode();
   var body = response.getContentText();
@@ -84,6 +89,32 @@ function callClaudeForText_(prompt, maxTokens) {
     throw new Error('Claude APIのレスポンスにテキストが含まれていません: ' + truncateForError_(body));
   }
   return text;
+}
+
+// Claude APIをリトライ付きで呼び出す。muteHttpExceptions: trueのためUrlFetchApp.fetch自体は
+// HTTPエラーステータスでは例外を投げないので、ステータスコードのチェックをこのループの中に含め、
+// 一時的なエラー(CLAUDE_RETRYABLE_STATUS_CODES_)およびfetch自体のネットワーク例外の両方を
+// 指数バックオフでリトライする。200、またはリトライ対象外のステータスコード（400・401等の
+// 恒久的なクライアントエラー）はそのままレスポンスを返し、呼び出し元(callClaudeForText_)の
+// ステータスチェックに委ねる（リトライしても直らないエラーで無駄に待たせないため）。
+function fetchClaudeWithRetry_(options) {
+  var attempt = 0;
+  while (true) {
+    try {
+      var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', options);
+      var code = response.getResponseCode();
+      if (CLAUDE_RETRYABLE_STATUS_CODES_.indexOf(code) === -1) {
+        return response;
+      }
+      throw new Error(
+        'Claude APIが一時的なエラーを返しました(' + code + '): ' + truncateForError_(response.getContentText())
+      );
+    } catch (err) {
+      attempt++;
+      if (attempt > CLAUDE_MAX_RETRIES_) throw err;
+      Utilities.sleep(CLAUDE_RETRY_BASE_DELAY_MS_ * Math.pow(2, attempt - 1));
+    }
+  }
 }
 
 // エラーメッセージにAPIの生レスポンスをそのまま含めると異常に長くなることがあり、
@@ -257,11 +288,13 @@ function buildJoujakuPrompt_() {
   var direction = Utils.pickRandom(JOUJAKU_MESSAGE_DIRECTIONS_);
   var pattern = Utils.pickRandom(JOUJAKU_REFERENCE_PATTERNS_);
   var lengthType = Utils.pickRandom(POST_LENGTH_TYPES_);
+  var isShortLength = lengthType.label === '短め';
+  var buzzword = BuzzwordService.pickRandom();
 
   Utils.logEvent(
     '抽選', '-', '情弱',
     'フック=' + hook.name + ' / 方向性=' + direction + ' / 参考=参考' + pattern.label + '(' + pattern.title + ')' +
-    ' / 文字数タイプ=' + lengthType.label + '(' + lengthType.range + ')'
+    ' / 文字数タイプ=' + lengthType.label + '(' + lengthType.range + ')' + ' / バズ構文=' + buzzword
   );
 
   return [
@@ -283,6 +316,7 @@ function buildJoujakuPrompt_() {
     '今回使うメッセージの方向性: ' + direction,
     '今回参考にする形式: 参考' + pattern.label + '（' + pattern.title + '）',
     '今回の文字数目安: ' + lengthType.label + '（' + lengthType.range + '）',
+    '今回使うバズ構文: ' + buzzword,
     '参考' + pattern.label + 'の構成の型は保ったまま、上記の文字数目安に収まるよう調整して書くこと。',
     '型が長め寄りの参考でも短めが指定された場合はエピソード部分などを簡潔にし、',
     '逆に短め寄りの参考で長めが指定された場合は描写やメッセージを丁寧に膨らませること。',
@@ -303,13 +337,17 @@ function buildJoujakuPrompt_() {
     '- 数字を使った呼びかけ（例：7/19にいいねをした人、第1位は〇〇座）',
     '- 感情・驚きの一言（例：え、まって。／ちょっと聞いてください。／ごめんなさい、先に言います。）',
     '- 疑問形（例：今、なんとなく目が止まりましたか？／これ、当てはまりますか？）',
-    '- バズワードから始める（例：これガチです。／独り言なんですが、）',
+    '- 「今回使うバズ構文」から始める',
     '',
     '冒頭の書き出しに以下の要素を意識すること（伸びやすい要素）：',
     '- 【】を使う場合は数字や感情と組み合わせる（例：【7/19限定】）',
     '- 数字を入れる（日付・ランキング・パーセントなど）',
     '- 感情が伝わる言葉（え、まって／ごめんなさい／つい言っちゃう、など）',
     '- 疑問形で引き込む（〜ですか？）',
+    isShortLength
+      ? '- 「短め」が指定されているため、上記の要素を全部盛り込もうとしないこと。1つ程度に絞ってよい。' +
+        '要素を全部使って文字数目安を超えるより、要素を減らしてでも文字数目安（' + lengthType.range + '）を守ることを優先すること。'
+      : '- 「長め」が指定されているため、上記の要素はできるだけ盛り込みつつ、有効期間の説明やメッセージも丁寧に膨らませてよい。',
     '',
     '本文は有効期間とメッセージを自然な一続きの文章にすること。',
     '有効期間の部分は必ず「この投稿を見た」ではなく「この投稿にいいねをした」という表現にすること。',
@@ -325,16 +363,11 @@ function buildJoujakuPrompt_() {
     '- ただし文章の途中で意味が切れる場合や、不自然な位置での改行は不要。読みやすさを優先すること',
     '- 段落と段落の間は1行空けること',
     '',
-    '## バズワード（必須）',
-    '1つのポストに必ず以下のリストから1つを自然な形で入れること。',
-    '毎回異なるものを選ぶこと（同じバズワードが連続しないよう意識する）。',
-    '○○の部分は文脈に合わせて適切な言葉に置き換えること。',
-    '',
-    'これガチです／これ天才やん...／何度も言うけど、／大きい声で言えませんが、／信じられないけど、／マジで○○きつい。／お願いです。／○○凄すぎる...／○○な人は／批判されそうですが...／炎上覚悟ですが...／なかなか理解してもらえないんですが、／これ秘密にして欲しいのですが、／これはマジな話ですが、／信じられないのですが、、／こっそり教えますが、／独り言なんですが、／有益すぎてバズったら削除するかもですが、／100回以上言ってるけど、／怒られたら消しますが...／批判覚悟でいいます。／ごめん、怒られそうだけど、公開します／怒られそうだけど、書きます。／【ご報告】／【ご連絡】／【悲報】／【朗報】／【注意】／前代未聞。／○○したいなら／一言だけ言わせてください／傷つけてしまうかもしれませんが、／断言します。／勘違いしないでください。／○○やめます。／炎上したらすぐ消します／本当に大暴露しちゃいます。／グレーですが、／勘がいい人は気づいてるけど、／これガチなんですけど、／嘘みたいな本当の話なんですけど、／まだ9割の人が知らない、／元○○だったからよくわかるけど、／自戒を込めて.／悪いことは言わないから、／え、待ってこわすぎる……／今から1番大事なこと言うね。／ごめんなさい。しんどいです。',
-    '',
-    'バズワードは冒頭か本文の書き出しに自然に入れること。',
-    'ただし、バズワードを冒頭に使う場合は参考ポストの書き出しとは置き換える形にすること（両方を重ねて使わないこと）。',
-    'しずくさんのトーン（静か・丁寧・温かい）と大きくかけ離れるものは避け、世界観に馴染むものを優先して選ぶこと。',
+    '## バズ構文（必須）',
+    '「今回使うバズ構文」（' + buzzword + '）を、そのまま（言い換えずに）冒頭か本文の書き出しに自然な形で1つ入れること。',
+    '文中に○○のようなプレースホルダーが含まれる場合は、文脈に合わせて適切な言葉に置き換えること。',
+    'ただし、バズ構文を冒頭に使う場合は参考ポストの書き出しとは置き換える形にすること（両方を重ねて使わないこと）。',
+    'しずくさんのトーン（静か・丁寧・温かい）と大きくかけ離れる場合も、トーンを保ちながら前後の言葉で自然に馴染ませること。',
     '',
     '## 文体・トーンのルール',
     '- テンポよく読めること',
@@ -348,11 +381,14 @@ function buildJoujakuPrompt_() {
     '「今回使う設定」で指定されたフック・メッセージの方向性・参考パターンに従って、',
     'パターンを1つだけ出力すること。5パターン出力しないこと。',
     '',
-    '## 文字数制限（絶対厳守）',
-    '「今回使う設定」の文字数目安（' + lengthType.range + '）を意識しつつ、',
-    '1投稿あたり、必ず500文字以内に収めること。',
-    'これはThreadsの仕様上の制限であり、いかなる場合も超えてはならない。',
-    '出力前に必ず文字数を確認し、500文字を超えている場合は削って調整してから出力すること。',
+    '## 文字数制限（この投稿における最重要ルールの1つ。絶対厳守）',
+    '「今回使う設定」の文字数目安（' + lengthType.range + '）が、この投稿で必ず守るべき目標値である。',
+    '500文字という数字はThreadsの投稿本文の仕様上の絶対上限にすぎず、目標値ではない。' +
+      '「500文字まで書いてよい」という意味では決してなく、あくまで上記の文字数目安の範囲に収めることを最優先すること。',
+    isShortLength
+      ? 'とくに今回は「短め」が指定されているため、投稿全体で150文字を大きく超えないこと（160文字程度までを許容誤差とする）。'
+      : '「長め」が指定されているため、投稿全体を300〜500文字の範囲に収めること。',
+    '出力前に必ず文字数を確認し、範囲を超えている場合は削って調整してから出力すること。',
     '',
     '## 禁止事項',
     '- 根拠のない断定的な予言（例：必ず宝くじが当たる）は避ける',
@@ -474,12 +510,13 @@ function buildHspAlarmPrompt_() {
   var cta = isShortLength ? Utils.pickRandom(HSP_CTA_SHORT_PATTERNS_) : Utils.pickRandom(HSP_CTA_PATTERNS_);
   var followText = isShortLength ? null : Utils.pickRandom(HSP_FOLLOW_PATTERNS_);
   var isAnimalNursePattern = pattern.label === 'C';
+  var buzzword = BuzzwordService.pickRandom();
 
   Utils.logEvent(
     '抽選', '-', 'HSPあるある',
     'テーマ=' + theme + ' / 構成パターン=パターン' + pattern.label + '(' + pattern.title + ')' +
     ' / 文字数タイプ=' + lengthType.label + '(' + lengthType.range + ')' +
-    ' / CTA=' + cta + ' / フォロー誘導=' + (followText || 'なし')
+    ' / CTA=' + cta + ' / フォロー誘導=' + (followText || 'なし') + ' / バズ構文=' + buzzword
   );
 
   // 動物看護師のエピソードはパターンC専用。他パターンでの流用を防ぐため、
@@ -517,6 +554,7 @@ function buildHspAlarmPrompt_() {
     '型が長め寄りの構成でも短めが指定された場合はエピソード部分などを簡潔にし、',
     '逆に短め寄りの構成で長めが指定された場合は描写やメッセージを丁寧に膨らませること。',
     animalNurseNote,
+    '今回使うバズ構文: ' + buzzword,
     '今回使うCTA文: ' + cta,
     followText
       ? '今回使うフォロー誘導文: ' + followText
@@ -538,8 +576,7 @@ function buildHspAlarmPrompt_() {
     '  - 数字（例：HSPあるある第1位／3つ以上当てはまった人へ）',
     '  - 感情の言葉（例：え、これ私だ。／ごめんなさい、正直に言います。／つい言っちゃう）',
     '  - 疑問形（例：〇〇なこと、ありませんか？／これ、当てはまりますか？）',
-    '- バズ構文を冒頭に必ず1つ入れること。以下のリストから選ぶ：',
-    '  これガチです／信じられないけど、／なかなか理解してもらえないんですが、／独り言なんですが、／今から1番大事なこと言うね。／ごめんなさい、正直にお伝えします。／悪いことは言わないから、／勘がいい人は気づいてるけど、／傷つけてしまうかもしれませんが、／断言します。／一言だけ言わせてください／自戒を込めて.',
+    '- 「今回使うバズ構文」（' + buzzword + '）を、そのまま（言い換えずに）冒頭に必ず1つ入れること。',
     '- バズ構文を冒頭に使う場合は、他の書き出しと重ねないこと（二重にしない）',
     '- わかる人いますか／ここに来てください など仲間意識を刺激する言葉を入れる',
     '- あるあるで「苦しみを代弁」した後は必ず「大丈夫だよ」「あなたは悪くない」という安心感で締める',
@@ -601,6 +638,14 @@ function stripTrailingCombinationMemo_(text) {
 // - 参考ポストは、リプライ分割（「↓」区切り）前提の⑥⑦⑨を除外し、単独の投稿として完結する
 //   ①②③④⑤⑧のみを使用する（本システムではこの投稿タイプにリプライを付けないため）
 function buildKaiunPrompt_(date, luckyDays) {
+  var lengthType = Utils.pickRandom(POST_LENGTH_TYPES_);
+  var buzzword = BuzzwordService.pickRandom();
+
+  Utils.logEvent(
+    '抽選', '-', '開運',
+    '文字数タイプ=' + lengthType.label + '(' + lengthType.range + ')' + ' / バズ構文=' + buzzword
+  );
+
   return [
     'あなたはHSP占い師「しずく」のSNS担当です。',
     'Threadsに投稿する、開運日に合わせたポストを作成してください。',
@@ -608,6 +653,8 @@ function buildKaiunPrompt_(date, luckyDays) {
     '## 入力データ',
     '対象日: ' + Utils.formatJapaneseDate(date),
     '開運日: ' + luckyDays.join('、'),
+    '今回の文字数目安: ' + lengthType.label + '（' + lengthType.range + '）',
+    '今回使うバズ構文: ' + buzzword,
     '',
     '## マニアックな開運日の意味（該当する場合、本文中で一言添える際の参考にすること）',
     '- 大明日（だいみょうにち）：天と地の道が開く、すべてに吉とされる最強の吉日',
@@ -620,7 +667,7 @@ function buildKaiunPrompt_(date, luckyDays) {
     '- 己巳の日（つちのとみのひ）：弁財天の縁日。金運・財運に特に良い日',
     '',
     '## ポスト本文の構成',
-    '1. 書き出し（バズワードまたは呼びかけ）',
+    '1. 書き出し（バズ構文または呼びかけ）',
     '2. 開運日の説明（1〜2行で簡潔に）',
     '3. いいねアクション（有効期間を含む）',
     '4. メッセージ（その開運日に合った内容）',
@@ -639,8 +686,8 @@ function buildKaiunPrompt_(date, luckyDays) {
     'マニアックな開運日を使う場合、読んだ人が知らなくても意味が伝わるよう、開運日の名前に一言添えてもよい。',
     '例：大明日（すべてに吉とされる日）の今日',
     '',
-    'バズワード（必ず1つ入れること）：',
-    'これガチです／信じられないけど、／こっそり教えますが、／これはマジな話ですが、／勘がいい人は気づいてるけど、／独り言なんですが、／今から1番大事なこと言うね。／やっぱり、私の勘は外れていなかった。／なかなか理解してもらえないんですが、／炎上覚悟ですが...／怒られそうだけど、書きます。／有益すぎてバズったら削除するかもですが、／悪いことは言わないから、／嘘みたいな本当の話なんですけど、／ごめんなさい…正直にお伝えします。',
+    'バズ構文（必ず1つ入れること）：',
+    '「今回使うバズ構文」（' + buzzword + '）を、そのまま（言い換えずに）1つ入れること。',
     '',
     'いいねアクションの表現：',
     'この投稿にいいねをした人、という表現を必ず使うこと。',
@@ -707,7 +754,7 @@ function buildKaiunPrompt_(date, luckyDays) {
     '- 文中に「」（鍵括弧）は使わないこと（いいねアクションの絵文字指定など、どうしても必要な場合のみ可）',
     '',
     '## 文字数制限（絶対厳守）',
-    '1投稿あたり必ず500文字以内に収めること。',
+    '「今回の文字数目安」（' + lengthType.range + '）を意識しつつ、1投稿あたり必ず500文字以内に収めること。',
     '出力前に文字数を確認し、超えている場合は削って調整してから出力すること。',
     '',
     '## 出力形式',

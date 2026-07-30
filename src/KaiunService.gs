@@ -1,24 +1,26 @@
 /**
- * 「開運日カレンダー」シート(A=日付, B=曜日, C=開運日(カンマ区切り、複数可))を参照し、
- * 指定した日付に該当する開運日名を判定するモジュール。
+ * 「開運日カレンダー」シート(A=日付, B=曜日, C=開運日(カンマ区切り、複数可))を参照するモジュール。
+ * このシートには運用側が「投稿したい開運日」だけを厳選して貼り付ける運用のため、
+ * シートに書かれている行をそのまま読み込むだけでよく、任意の日付範囲を走査する必要はない。
  *
  * GenerationService.generateKaiunBatchが、開運ポストシートへの一括生成時にこれを使う。
  */
 var KaiunService = {
-  // dateに一致する開運日名の配列を返す。該当する行がない、またはC列が空の場合は空配列を返す。
-  findLuckyDaysForDate: function (date) {
+  // 開運日カレンダーシートの2行目以降を上から順に読み込み、{date, luckyDays}の配列にする。
+  // 日付(A列)が空の行は無視する。
+  listEntries: function () {
     var sheet = SheetService.getSheetByName(Config.SHEET_NAMES.KAIUN_CALENDAR);
     var lastRow = sheet.getLastRow();
     if (lastRow < 2) return [];
 
     var values = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
-    for (var i = 0; i < values.length; i++) {
-      var row = values[i];
-      if (isSameDate_(row[0], date)) {
-        return parseLuckyDayNames_(row[2]);
-      }
-    }
-    return [];
+    return values
+      .filter(function (row) {
+        return row[0];
+      })
+      .map(function (row) {
+        return { date: row[0], luckyDays: parseLuckyDayNames_(row[2]) };
+      });
   }
 };
 

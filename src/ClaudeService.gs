@@ -25,7 +25,7 @@ var ClaudeService = {
   },
 
   // 開運ポスト本文を1件生成する。
-  // date: 対象日(Dateオブジェクト), luckyDays: KaiunService.findLuckyDaysForDateで得た開運日名の配列
+  // date: 対象日(Dateオブジェクト), luckyDays: KaiunService.listEntriesの該当エントリのluckyDays(開運日名の配列)
   // 戻り値: 本文1件（文字列）
   generateKaiunCaption: function (date, luckyDays) {
     var text = callClaudeForText_(buildKaiunPrompt_(date, luckyDays), 1200);
@@ -593,7 +593,7 @@ function stripTrailingCombinationMemo_(text) {
 
 // 開運ポスト用プロンプト。
 // 元のプロンプトは「日付範囲を受け取りウェブ検索で開運日を調べ、複数日分をまとめて作る」設計だが、
-// 開運日の判定はKaiunService.findLuckyDaysForDateで既に済ませてあるため、以下の点を調整している。
+// 開運日の判定はKaiunService.listEntries（開運日カレンダーシートの内容）で既に済ませてあるため、以下の点を調整している。
 // - STEP1（ウェブ検索での開運日調査）は削除し、date・luckyDaysを入力データとしてそのまま渡す
 // - マニアックな開運日の定義リストは、本文中で意味を一言添える際の参考として残す
 // - 「対象日の選び方」「出力の順番（前半/後半確認）」など複数日バッチ処理前提の指示は削除

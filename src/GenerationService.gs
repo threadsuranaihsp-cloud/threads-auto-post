@@ -14,6 +14,9 @@ var TAROT_REPLY_HEADINGS_ = ['①を選んだ方\n\n', '②を選んだ方\n\n',
 // 情弱ポスト・HSPあるあるポストのように、手動実行1回で一気に生成する件数
 var FIXED_BATCH_COUNT_ = 10;
 
+// 開運ポストで、手動実行1回で一気に生成する最大件数
+var KAIUN_BATCH_MAX_ = 31;
+
 var GenerationService = {
   // タロットポストシートの「質問が入っていて投稿本文が空」の行を対象に、
   // カード抽選・画像解決・リプライ本文生成・本体投稿文の組み立てをまとめて行う。
@@ -62,55 +65,42 @@ var GenerationService = {
     generateFixedCountBatch_(Config.POST_TYPES.HSP_ALARM, ClaudeService.generateHspAlarmCaption);
   },
 
-  // 開運日カレンダーを参照し、翌日からdaysAhead日分のうち、開運日がありまだ生成していない
-  // 日付だけをまとめて生成する（デフォルト30日）。GASの実行時間制限に引っかかる場合は、
-  // 例えば generateKaiunBatch(14) を2回に分けて手動実行すればよい。
-  generateKaiunBatch: function (daysAhead) {
-    var days = daysAhead || 30;
+  // 開運日カレンダーシートに書かれている行を上から順に確認し、まだ投稿文が生成されていない
+  // 日付を最大KAIUN_BATCH_MAX_件まで処理する。カレンダーシートには運用側が「投稿したい
+  // 開運日」だけを厳選して貼り付ける運用のため、任意の日付範囲を走査してスキップする処理は行わない。
+  generateKaiunBatch: function () {
     var typeConfig = Config.POST_TYPES.KAIUN;
     var sheet = SheetService.getSheetByName(typeConfig.sheetName);
     var existingDates = SheetService.readRows(sheet, typeConfig.col)
       .map(function (row) { return row.date; })
       .filter(function (d) { return d; });
 
+    var targets = KaiunService.listEntries()
+      .filter(function (entry) {
+        return !existingDates.some(function (d) {
+          return isSameDate_(d, entry.date);
+        });
+      })
+      .slice(0, KAIUN_BATCH_MAX_);
+
     var successCount = 0;
-    var skippedCount = 0;
 
-    for (var i = 1; i <= days; i++) {
-      var targetDate = Utils.addDays(new Date(), i);
-      var alreadyGenerated = existingDates.some(function (d) {
-        return isSameDate_(d, targetDate);
-      });
-      if (alreadyGenerated) {
-        skippedCount++;
-        continue;
-      }
-
-      var luckyDays = KaiunService.findLuckyDaysForDate(targetDate);
-      if (luckyDays.length === 0) {
-        skippedCount++;
-        continue;
-      }
-
+    targets.forEach(function (entry) {
       try {
-        var body = ClaudeService.generateKaiunCaption(targetDate, luckyDays);
+        var body = ClaudeService.generateKaiunCaption(entry.date, entry.luckyDays);
         SheetService.appendRow(sheet, typeConfig.col, {
-          date: targetDate,
-          luckyDays: luckyDays.join(','),
+          date: entry.date,
+          luckyDays: entry.luckyDays.join(','),
           body: body,
           generatedAt: new Date()
         });
-        existingDates.push(targetDate); // 同一実行内での重複生成を防ぐ
         successCount++;
       } catch (err) {
-        Utils.logEvent('生成', '-', '失敗', '開運(' + Utils.formatJapaneseDate(targetDate) + '): ' + String(err));
+        Utils.logEvent('生成', '-', '失敗', '開運(' + Utils.formatJapaneseDate(entry.date) + '): ' + String(err));
       }
-    }
+    });
 
-    Utils.logEvent(
-      '生成', '-', '完了',
-      '開運ポストを' + successCount + '件生成（対象' + days + '日分走査、スキップ' + skippedCount + '件）'
-    );
+    Utils.logEvent('生成', '-', '完了', '開運ポストを' + successCount + '件生成');
   }
 };
 

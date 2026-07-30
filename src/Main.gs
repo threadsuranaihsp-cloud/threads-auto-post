@@ -37,7 +37,8 @@ function generateHspAlarmBatch() {
   GenerationService.generateHspAlarmBatch();
 }
 
-// 開運日カレンダーを参照し、翌日から指定日数分（省略時30日）の開運ポストをまとめて生成する
-function generateKaiunBatch(daysAhead) {
-  GenerationService.generateKaiunBatch(daysAhead);
+// 開運日カレンダーシートに書かれている行を上から順に確認し、まだ生成していない開運ポストを
+// 最大KAIUN_BATCH_MAX_件までまとめて生成する
+function generateKaiunBatch() {
+  GenerationService.generateKaiunBatch();
 }

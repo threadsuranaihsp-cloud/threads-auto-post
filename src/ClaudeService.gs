@@ -5,7 +5,7 @@ var ClaudeService = {
   // question: 質問文, cards: TarotService.drawThreeCardsで得た3件の{name, orientation, meaning}
   // 戻り値: [本文①, 本文②, 本文③] (3件の文字列)
   generateTarotCaptions: function (question, cards) {
-    var text = callClaudeForText_(buildTarotPrompt_(question, cards), 2000);
+    var text = callClaudeForText_(buildTarotPrompt_(question, cards), 3500);
     return parseTarotCaptions_(text);
   },
 

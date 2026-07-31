@@ -13,14 +13,14 @@ var ClaudeService = {
   // （有効期間は実データを渡さず、プロンプトの指示でプレースホルダーのまま出力させる）。
   // 戻り値: 本文1件（文字列）
   generateJoujakuCaption: function () {
-    var text = callClaudeForText_(buildJoujakuPrompt_(), 1500);
+    var text = callClaudeForText_(buildJoujakuPrompt_(), 2000);
     return stripTrailingCombinationMemo_(text.trim());
   },
 
   // HSPあるあるポスト本文を1件生成する。引数なし
   // 戻り値: 本文1件（文字列）
   generateHspAlarmCaption: function () {
-    var text = callClaudeForText_(buildHspAlarmPrompt_(), 1500);
+    var text = callClaudeForText_(buildHspAlarmPrompt_(), 2500);
     return stripTrailingCombinationMemo_(text.trim());
   },
 
@@ -28,7 +28,7 @@ var ClaudeService = {
   // date: 対象日(Dateオブジェクト), luckyDays: KaiunService.listEntriesの該当エントリのluckyDays(開運日名の配列)
   // 戻り値: 本文1件（文字列）
   generateKaiunCaption: function (date, luckyDays) {
-    var text = callClaudeForText_(buildKaiunPrompt_(date, luckyDays), 1200);
+    var text = callClaudeForText_(buildKaiunPrompt_(date, luckyDays), 2000);
     return text.trim();
   }
 };

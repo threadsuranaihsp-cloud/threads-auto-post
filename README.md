@@ -273,11 +273,11 @@ Apps Scriptエディタで`initializeSpreadsheet`を一度だけ手動実行す�
   | （区切り線） | - |
   | 初期セットアップ | `initializeSpreadsheet` + `installTriggers` |
 
-- 各項目は、実際の処理の前後にtoast（開始）・alert（完了）を出す共通ラッパー`runFromMenu_`を
-  経由する。開始時は`SpreadsheetApp.getActiveSpreadsheet().toast(...)`で右下に非ブロッキングの
-  通知を出し、完了時は`SpreadsheetApp.getUi().alert(...)`でクリックするまで消えないモーダル
-  ダイアログを出す。処理中に例外が発生した場合は完了alertを出さずに例外がそのまま伝播し、
-  GAS標準のエラーダイアログが表示される。
+- 各項目は、実際の処理の後にalert（完了）を出す共通ラッパー`runFromMenu_`を経由する。
+  完了時は`SpreadsheetApp.getUi().alert(...)`でクリックするまで消えないモーダルダイアログを出す。
+  処理中に例外が発生した場合は完了alertを出さずに例外がそのまま伝播し、GAS標準のエラーダイアログが
+  表示される。（当初は開始時に`toast(...)`も出す設計だったが、完了alertを閉じた後もtoast通知が
+  画面に残り続けてしまう問題があったため、toastは廃止しalertのみにした。）
 - **`transferCycle`・`postingCycle`・`insightsCollection`は時間主導トリガーからも自動実行される
   関数のため、`Main.gs`側の実装は一切変更していない。** `SpreadsheetApp.getUi()`はトリガーに
   よる自動実行時に呼び出すと例外になるため、UI呼び出しは`Menu.gs`側の専用ラッパー

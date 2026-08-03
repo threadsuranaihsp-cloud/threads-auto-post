@@ -5,10 +5,12 @@
 function installTriggers() {
   removeProjectTriggers_(['transferCycle', 'postingCycle', 'tokenRefreshCheck', 'insightsCollection']);
 
-  // 投稿タイプ別シートで承認済み(OK)になった行を投稿キューへ転記する（1時間おき）
+  // 投稿タイプ別シートで承認済み(OK)になった行を投稿キューへ転記する（毎日3:00に1回）。
+  // 日中の承認・確認作業とシートの自動更新が競合しないよう、作業のない深夜にまとめて実行する。
   ScriptApp.newTrigger('transferCycle')
     .timeBased()
-    .everyHours(1)
+    .atHour(3)
+    .everyDays(1)
     .create();
 
   // 7:00〜24:00の投稿スロットを検知するため15分おきに巡回（時間外は関数内で早期リターン）

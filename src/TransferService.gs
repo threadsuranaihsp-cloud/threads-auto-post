@@ -1,34 +1,37 @@
 /**
  * 投稿タイプ別シートで承認済み(OK)になった行を、投稿キューシートへ転記する処理。
- * 1時間おきの巡回トリガーで実行することを想定している。
+ * 毎日3:00に1回実行することを想定している（日中の承認・確認作業とシートの自動更新が
+ * 競合しないよう、作業のない深夜にまとめて実行する）。
  *
- * 「翌日」の投稿は、Config.SLOT_MINUTESの10個の固定時刻スロットそれぞれに、
+ * targetDateは実行日そのもの（オフセット無し）。3:00に実行し、その日の7:00からの
+ * 投稿スロットを準備する設計のため、「翌日」ではなく「当日（実行時点の日付）」を対象にする。
+ * その日の投稿は、Config.SLOT_MINUTESの10個の固定時刻スロットそれぞれに、
  * どの投稿タイプを割り当てるかを固定した1日パターン(Config.DAILY_PATTERN_WITH_KAIUN /
  * DAILY_PATTERN_WITHOUT_KAIUN)に従って埋めていく。どちらのパターンを使うかは、
- * 開運日カレンダーシートに翌日の日付が存在するかどうかで判定する（開運ポスト自体の
+ * 開運日カレンダーシートに当日の日付が存在するかどうかで判定する（開運ポスト自体の
  * 承認状況は見ない。承認が間に合わなかった場合はKAIUNの枠だけが空いたままになり、
  * 他タイプへの振替は行わない＝既存の「埋め合わせない」方針を踏襲）。
  *
  * パターンを先頭のスロットから順に見ていき、各タイプについて「パターン内で何回目の
  * 登場か」を数える。その回数が既に投稿キューに存在する当日のそのタイプの件数
- * （countRowsByType_）未満であれば、前回までのサイクルで転記済みの枠とみなしてスキップする。
- * これによりスロットごとの時刻を直接比較しなくても、複数回の巡回実行にまたがって
- * 安全（冪等）に埋めていける。まだ埋まっていない枠に来たら、そのタイプの承認済み・
- * 未転記の候補（タロット・情弱・HSPあるある・数秘術はシート上から順に、開運のみ
- * 投稿予定日と日付が一致する1件）から未使用の1件を取り出し、そのスロットの固定時刻で
- * 転記する。候補が尽きている場合はその枠を今回は埋めず、次回サイクルに持ち越す
+ * （countRowsByType_）未満であれば、既に転記済みの枠とみなしてスキップする。
+ * これによりスロットごとの時刻を直接比較しなくても、（メニューからの手動再実行等で）
+ * 複数回実行された場合でも安全（冪等）に埋めていける。まだ埋まっていない枠に来たら、
+ * そのタイプの承認済み・未転記の候補（タロット・情弱・HSPあるある・数秘術はシート上から順に、
+ * 開運のみ投稿予定日と日付が一致する1件）から未使用の1件を取り出し、そのスロットの固定時刻で
+ * 転記する。候補が尽きている場合はその枠は埋めず、翌日以降の実行に持ち越す
  * （他タイプで穴埋めしない）。
  */
 var TransferService = {
   runTransferCycle: function () {
-    var targetDate = Utils.addDays(new Date(), 1);
+    var targetDate = new Date();
     var existingRows = getQueueRowsForDate_(targetDate);
     var countByType = countRowsByType_(existingRows);
 
-    var hasKaiunTomorrow = KaiunService.listEntries().some(function (entry) {
+    var hasKaiunToday = KaiunService.listEntries().some(function (entry) {
       return isSameDate_(entry.date, targetDate);
     });
-    var pattern = hasKaiunTomorrow ? Config.DAILY_PATTERN_WITH_KAIUN : Config.DAILY_PATTERN_WITHOUT_KAIUN;
+    var pattern = hasKaiunToday ? Config.DAILY_PATTERN_WITH_KAIUN : Config.DAILY_PATTERN_WITHOUT_KAIUN;
 
     var occurrenceIndexByType = {};
     var candidatesByType = {};
@@ -59,7 +62,7 @@ var TransferService = {
     Utils.logEvent(
       '転記', '-', '完了',
       Utils.formatJapaneseDate(targetDate) + '分の転記を実行(今回' + transferredCount + '件、' +
-      'パターン=' + (hasKaiunTomorrow ? '開運あり' : '開運なし') + ')'
+      'パターン=' + (hasKaiunToday ? '開運あり' : '開運なし') + ')'
     );
   }
 };

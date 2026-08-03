@@ -7,10 +7,12 @@
  * 投稿スロットを準備する設計のため、「翌日」ではなく「当日（実行時点の日付）」を対象にする。
  * その日の投稿は、Config.SLOT_MINUTESの10個の固定時刻スロットそれぞれに、
  * どの投稿タイプを割り当てるかを固定した1日パターン(Config.DAILY_PATTERN_WITH_KAIUN /
- * DAILY_PATTERN_WITHOUT_KAIUN)に従って埋めていく。どちらのパターンを使うかは、
- * 開運日カレンダーシートに当日の日付が存在するかどうかで判定する（開運ポスト自体の
- * 承認状況は見ない。承認が間に合わなかった場合はKAIUNの枠だけが空いたままになり、
- * 他タイプへの振替は行わない＝既存の「埋め合わせない」方針を踏襲）。
+ * DAILY_PATTERN_WITHOUT_KAIUN)に従って埋めていく。どちらのパターンを使うかは、開運ポストシートに
+ * 「投稿予定日（当日）と日付が一致し、承認ステータス=OK かつ 転記ステータス=未転記」の行が
+ * あるかどうかで判定する（getApprovedUntransferredKaiunRowForDate_の結果を流用。開運日
+ * カレンダーシートは生成後に運用側で行を削除するため参照しない）。そのため、開運ポストが
+ * 当日3:00の実行時点で未承認だと、その日はKAIUN無しのパターン（HSPあるあるが2枠）になる
+ * （空きの開運枠を残すより、他タイプで10枠を埋めきる方を優先する設計）。
  *
  * パターンを先頭のスロットから順に見ていき、各タイプについて「パターン内で何回目の
  * 登場か」を数える。その回数が既に投稿キューに存在する当日のそのタイプの件数
@@ -28,13 +30,12 @@ var TransferService = {
     var existingRows = getQueueRowsForDate_(targetDate);
     var countByType = countRowsByType_(existingRows);
 
-    var hasKaiunToday = KaiunService.listEntries().some(function (entry) {
-      return isSameDate_(entry.date, targetDate);
-    });
+    var kaiunCandidates = getApprovedUntransferredKaiunRowForDate_(targetDate);
+    var hasKaiunToday = kaiunCandidates.length > 0;
     var pattern = hasKaiunToday ? Config.DAILY_PATTERN_WITH_KAIUN : Config.DAILY_PATTERN_WITHOUT_KAIUN;
 
     var occurrenceIndexByType = {};
-    var candidatesByType = {};
+    var candidatesByType = { KAIUN: kaiunCandidates };
     var transferredCount = 0;
 
     pattern.forEach(function (typeKey, slotIndex) {
@@ -45,9 +46,7 @@ var TransferService = {
       if (alreadyFilled) return;
 
       if (!candidatesByType[typeKey]) {
-        candidatesByType[typeKey] = typeKey === 'KAIUN'
-          ? getApprovedUntransferredKaiunRowForDate_(targetDate)
-          : getApprovedUntransferredRows_(Config.POST_TYPES[typeKey]);
+        candidatesByType[typeKey] = getApprovedUntransferredRows_(Config.POST_TYPES[typeKey]);
       }
 
       var usedCountForType = occIndex - (countByType[typeKey] || 0);

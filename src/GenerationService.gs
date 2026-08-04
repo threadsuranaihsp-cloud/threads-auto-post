@@ -44,7 +44,8 @@ var GenerationService = {
           replyBody1: TAROT_REPLY_HEADINGS_[0] + replyBodies[0],
           replyBody2: TAROT_REPLY_HEADINGS_[1] + replyBodies[1],
           replyBody3: TAROT_REPLY_HEADINGS_[2] + replyBodies[2],
-          generatedAt: new Date()
+          generatedAt: new Date(),
+          topicTag: typeConfig.defaultTopicTag
         });
         Utils.logEvent('生成', row.rowIndex, '成功', 'タロット: ' + row.question);
       } catch (err) {
@@ -92,7 +93,8 @@ var GenerationService = {
           date: entry.date,
           luckyDays: entry.luckyDays.join(','),
           body: body,
-          generatedAt: new Date()
+          generatedAt: new Date(),
+          topicTag: typeConfig.defaultTopicTag
         });
         successCount++;
       } catch (err) {
@@ -111,7 +113,11 @@ function generateFixedCountBatch_(typeConfig, generateFn) {
   for (var i = 0; i < FIXED_BATCH_COUNT_; i++) {
     try {
       var body = generateFn();
-      SheetService.appendRow(sheet, typeConfig.col, { body: body, generatedAt: new Date() });
+      SheetService.appendRow(sheet, typeConfig.col, {
+        body: body,
+        generatedAt: new Date(),
+        topicTag: typeConfig.defaultTopicTag
+      });
       successCount++;
     } catch (err) {
       Utils.logEvent('生成', '-', '失敗', typeConfig.label + ': ' + String(err));

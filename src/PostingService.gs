@@ -46,7 +46,7 @@ function postRow_(row) {
       }
       // 承認後にシートが編集され画像が許可フォルダ外に差し替えられているケースに備え、投稿直前にも再検証する
       DriveService.assertImagesAllowed([row.image1, row.image2, row.image3]);
-      mainPostId = ThreadsService.publishPost(row.body, [row.image1, row.image2, row.image3]);
+      mainPostId = ThreadsService.publishPost(row.body, [row.image1, row.image2, row.image3], row.topicTag);
       SheetService.updateQueueRow(row.rowIndex, {
         postStatus: Config.POST_STATUS.REPLIES_PENDING,
         postedAt: new Date(),

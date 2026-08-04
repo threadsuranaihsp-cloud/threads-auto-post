@@ -6,8 +6,9 @@
 var THREADS_API_BASE_ = 'https://graph.threads.net/v1.0';
 
 var ThreadsService = {
-  // caption: 投稿本文, imageFileIds: 最大3件のDriveファイルID（空要素は無視）
-  publishPost: function (caption, imageFileIds) {
+  // caption: 投稿本文, imageFileIds: 最大3件のDriveファイルID（空要素は無視）,
+  // topicTag: トピックタグ（1〜50文字・ピリオド/アンパサンド不可。空の場合はパラメータ自体を送らない）
+  publishPost: function (caption, imageFileIds, topicTag) {
     var accessToken = Config.getThreadsAccessToken();
     var userId = Config.getThreadsUserId();
     var validImageIds = (imageFileIds || []).filter(Boolean);
@@ -16,18 +17,19 @@ var ThreadsService = {
     if (validImageIds.length >= 2) {
       // 各子コンテナ(画像)がFINISHEDになるのを待ってから、カルーセルの親コンテナ作成に渡す。
       // 待たずに渡すと「子アイテムのIDが無効/期限切れ」というエラーになることがある。
+      // トピックタグはトップレベルの投稿1件につき1つの機能のため、カルーセルの子アイテムには渡さない。
       var childrenIds = validImageIds.map(function (fileId) {
         var imageUrl = DriveService.getPublicImageUrl(fileId);
         var itemId = createCarouselItemContainer_(userId, accessToken, imageUrl);
         waitUntilFinished_(itemId, accessToken);
         return itemId;
       });
-      creationId = createCarouselContainer_(userId, accessToken, childrenIds, caption);
+      creationId = createCarouselContainer_(userId, accessToken, childrenIds, caption, topicTag);
     } else if (validImageIds.length === 1) {
       var imageUrl = DriveService.getPublicImageUrl(validImageIds[0]);
-      creationId = createImageContainer_(userId, accessToken, imageUrl, caption);
+      creationId = createImageContainer_(userId, accessToken, imageUrl, caption, topicTag);
     } else {
-      creationId = createTextContainer_(userId, accessToken, caption);
+      creationId = createTextContainer_(userId, accessToken, caption, topicTag);
     }
 
     waitUntilFinished_(creationId, accessToken);
@@ -84,27 +86,35 @@ function createCarouselItemContainer_(userId, token, imageUrl) {
   });
 }
 
-function createImageContainer_(userId, token, imageUrl, caption) {
-  return postAndGetId_('/' + userId + '/threads', token, {
+function createImageContainer_(userId, token, imageUrl, caption, topicTag) {
+  return postAndGetId_('/' + userId + '/threads', token, withTopicTag_({
     media_type: 'IMAGE',
     image_url: imageUrl,
     text: caption
-  });
+  }, topicTag));
 }
 
-function createCarouselContainer_(userId, token, childrenIds, caption) {
-  return postAndGetId_('/' + userId + '/threads', token, {
+function createCarouselContainer_(userId, token, childrenIds, caption, topicTag) {
+  return postAndGetId_('/' + userId + '/threads', token, withTopicTag_({
     media_type: 'CAROUSEL',
     children: childrenIds.join(','),
     text: caption
-  });
+  }, topicTag));
 }
 
-function createTextContainer_(userId, token, caption) {
-  return postAndGetId_('/' + userId + '/threads', token, {
+function createTextContainer_(userId, token, caption, topicTag) {
+  return postAndGetId_('/' + userId + '/threads', token, withTopicTag_({
     media_type: 'TEXT',
     text: caption
-  });
+  }, topicTag));
+}
+
+// topicTagが空でない場合のみ、paramsにtopic_tagを追加して返す（空の場合はパラメータ自体を送らない）。
+function withTopicTag_(params, topicTag) {
+  if (topicTag) {
+    params.topic_tag = topicTag;
+  }
+  return params;
 }
 
 function createReplyContainer_(userId, token, replyToId, text) {

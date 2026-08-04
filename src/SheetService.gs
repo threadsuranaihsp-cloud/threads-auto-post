@@ -41,7 +41,8 @@ var FIELD_TO_COL_KEY_ = {
   replies: 'REPLIES',
   reposts: 'REPOSTS',
   views: 'VIEWS',
-  insightsStatus: 'INSIGHTS_STATUS'
+  insightsStatus: 'INSIGHTS_STATUS',
+  topicTag: 'TOPIC_TAG'
 };
 
 var SheetService = {

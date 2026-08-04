@@ -130,7 +130,8 @@ function transferRow_(typeConfig, candidateRow, scheduledAt) {
     body: candidateRow.body,
     replyBody1: candidateRow.replyBody1,
     replyBody2: candidateRow.replyBody2,
-    replyBody3: candidateRow.replyBody3
+    replyBody3: candidateRow.replyBody3,
+    topicTag: candidateRow.topicTag
   };
   if (typeConfig.hasImages) {
     fields.image1 = candidateRow.image1;

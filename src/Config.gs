@@ -50,11 +50,13 @@ var Config = (function () {
     REPLIES: 20,
     REPOSTS: 21,
     VIEWS: 22,
-    INSIGHTS_STATUS: 23
+    INSIGHTS_STATUS: 23,
+    TOPIC_TAG: 24
   };
 
   // 投稿タイプ別シートの列番号（1始まり）。共通列(投稿本文/リプライ本文1〜3/承認ステータス/
   // 転記ステータス/生成日時)に加え、タイプごとの生成用入力列を持つ。
+  // トピックタグ列は既存列の番号を変えないよう、それぞれ一番右に追加してある。
   var TAROT_SHEET_COL = {
     NO: 1,
     QUESTION: 2,
@@ -70,7 +72,8 @@ var Config = (function () {
     REPLY_BODY3: 12,
     APPROVAL_STATUS: 13,
     TRANSFER_STATUS: 14,
-    GENERATED_AT: 15
+    GENERATED_AT: 15,
+    TOPIC_TAG: 16
   };
 
   var JOUJAKU_SHEET_COL = {
@@ -81,7 +84,8 @@ var Config = (function () {
     REPLY_BODY3: 5,
     APPROVAL_STATUS: 6,
     TRANSFER_STATUS: 7,
-    GENERATED_AT: 8
+    GENERATED_AT: 8,
+    TOPIC_TAG: 9
   };
 
   var HSP_ALARM_SHEET_COL = {
@@ -92,7 +96,8 @@ var Config = (function () {
     REPLY_BODY3: 5,
     APPROVAL_STATUS: 6,
     TRANSFER_STATUS: 7,
-    GENERATED_AT: 8
+    GENERATED_AT: 8,
+    TOPIC_TAG: 9
   };
 
   var KAIUN_POST_SHEET_COL = {
@@ -105,7 +110,8 @@ var Config = (function () {
     REPLY_BODY3: 7,
     APPROVAL_STATUS: 8,
     TRANSFER_STATUS: 9,
-    GENERATED_AT: 10
+    GENERATED_AT: 10,
+    TOPIC_TAG: 11
   };
 
   var NUMEROLOGY_SHEET_COL = {
@@ -118,7 +124,8 @@ var Config = (function () {
     REPLY_BODY3: 7,
     APPROVAL_STATUS: 8,
     TRANSFER_STATUS: 9,
-    GENERATED_AT: 10
+    GENERATED_AT: 10,
+    TOPIC_TAG: 11
   };
 
   var APPROVAL_STATUS = { PENDING: '未承認', OK: 'OK', NG: 'NG' };
@@ -135,12 +142,16 @@ var Config = (function () {
   // タイプごとのシート名・列マップ・画像の有無を参照する。
   // 1日あたりの件数（quota相当）は固定値では持たず、DAILY_PATTERN_WITH_KAIUN /
   // DAILY_PATTERN_WITHOUT_KAIUNの中に何回登場するかで決まる（下記参照）。
+  // defaultTopicTagは、生成時に「トピックタグ」列へ自動入力する初期値（Threads投稿のtopic_tag
+  // パラメータ用）。生成後に運用側で自由に書き換えられる。数秘術ポストは自動生成の仕組みが無く
+  // GenerationServiceから書き込む機会が無いため、他の入力項目(テーマ・グループ等)と同様に
+  // 手動入力してもらう運用とし、ここでの値はあくまで目安として残している。
   var POST_TYPES = {
-    TAROT: { key: 'TAROT', label: 'タロット', sheetName: SHEET_NAMES.TAROT, col: TAROT_SHEET_COL, hasImages: true },
-    JOUJAKU: { key: 'JOUJAKU', label: '情弱', sheetName: SHEET_NAMES.JOUJAKU, col: JOUJAKU_SHEET_COL, hasImages: false },
-    KAIUN: { key: 'KAIUN', label: '開運', sheetName: SHEET_NAMES.KAIUN_POST, col: KAIUN_POST_SHEET_COL, hasImages: false },
-    HSP_ALARM: { key: 'HSP_ALARM', label: 'HSPあるある', sheetName: SHEET_NAMES.HSP_ALARM, col: HSP_ALARM_SHEET_COL, hasImages: false },
-    NUMEROLOGY: { key: 'NUMEROLOGY', label: '数秘術', sheetName: SHEET_NAMES.NUMEROLOGY, col: NUMEROLOGY_SHEET_COL, hasImages: false }
+    TAROT: { key: 'TAROT', label: 'タロット', sheetName: SHEET_NAMES.TAROT, col: TAROT_SHEET_COL, hasImages: true, defaultTopicTag: 'タロット占い' },
+    JOUJAKU: { key: 'JOUJAKU', label: '情弱', sheetName: SHEET_NAMES.JOUJAKU, col: JOUJAKU_SHEET_COL, hasImages: false, defaultTopicTag: '' },
+    KAIUN: { key: 'KAIUN', label: '開運', sheetName: SHEET_NAMES.KAIUN_POST, col: KAIUN_POST_SHEET_COL, hasImages: false, defaultTopicTag: '開運日' },
+    HSP_ALARM: { key: 'HSP_ALARM', label: 'HSPあるある', sheetName: SHEET_NAMES.HSP_ALARM, col: HSP_ALARM_SHEET_COL, hasImages: false, defaultTopicTag: 'HSP' },
+    NUMEROLOGY: { key: 'NUMEROLOGY', label: '数秘術', sheetName: SHEET_NAMES.NUMEROLOGY, col: NUMEROLOGY_SHEET_COL, hasImages: false, defaultTopicTag: '数秘術' }
   };
 
   // 1日10枠の固定スロット時刻。7:00〜21:24を96分間隔で10等分。
